@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Générateur de devis</title>
+<title>Devis &amp; Factures — devis et factures pour indépendants</title>
+<meta name="description" content="Créez vos devis, transformez-les en factures conformes et suivez vos paiements et votre chiffre d'affaires.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%232f5bea'/%3E%3Cstop%20offset='1'%20stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='32'%20height='32'%20rx='8'%20fill='url%28%23g%29'/%3E%3Cpath%20d='M10.5%207.5h7.5l4.5%204.5v11.5a1%201%200%200%201-1%201h-11a1%201%200%200%201-1-1v-15a1%201%200%200%201%201-1Z'%20fill='%23fff'/%3E%3Cpath%20d='m12.6%2018.4%202.3%202.3%204.5-4.8'%20fill='none'%20stroke='%232f5bea'%20stroke-width='2.1'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,8 +30,9 @@ svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-widt
 /* Structure : barre latérale, contenu, panneau de détail */
 .app{display:grid;grid-template-columns:236px minmax(0,1fr) auto;height:100vh}
 .sidebar{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.brand{display:flex;align-items:center;gap:8px;height:56px;padding:0 18px;font-weight:800;letter-spacing:.04em;font-size:.92rem;text-transform:uppercase;border-bottom:1px solid transparent}
-.brand i{width:9px;height:12px;background:var(--ink);display:inline-block;border-radius:1px}
+.brand{display:flex;align-items:center;gap:9px;height:56px;padding:0 18px}
+.brand .logo-mark{width:26px;height:26px}
+.brand .wordmark{font-size:.95rem}
 .nav{display:flex;flex-direction:column;gap:2px;padding:12px 10px}
 .nav a{position:relative;display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;color:var(--ink-2);font-weight:500}
 .nav a:hover{background:var(--hover)}
@@ -291,14 +294,272 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
  .line .total{grid-column:1/3;text-align:left;color:var(--muted)}
  .line.head{display:none}
 }
+/* ---- Page d'accueil et connexion ---- */
+#landing{display:none;min-height:100vh;background:#fff}
+body.on-landing #landing{display:block}
+body.on-landing .app,body.on-landing .mobilebar{display:none!important}
+body.booting #landing,body.booting .app{visibility:hidden}
+.lpage{display:none}
+body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAuth,body[data-route="inscription"] #landingAuth{display:block}
+.lwrap{max-width:1160px;margin:0 auto;padding:0 24px}
+.logo{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
+.logo-mark{width:30px;height:30px;flex:none;display:block}
+.logo-mark.big{width:44px;height:44px;margin:0 auto 14px}
+.wordmark{font-weight:700;font-size:1.02rem;letter-spacing:-.015em;white-space:nowrap}
+.wordmark b{font-weight:500;color:var(--muted)}
+.lhead{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.88);backdrop-filter:saturate(1.5) blur(10px);-webkit-backdrop-filter:saturate(1.5) blur(10px);border-bottom:1px solid var(--line)}
+.lhead .lwrap{display:flex;align-items:center;gap:28px;height:64px}
+.lnav{display:flex;gap:22px}
+.lnav a{color:var(--ink-2);font-weight:500}
+.lnav a:hover{color:var(--ink)}
+.lactions{margin-left:auto;display:flex;gap:8px}
+.btn.lg{height:42px;padding:0 18px;font-size:.92rem;border-radius:8px}
+
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:48px;align-items:center;padding-top:72px;padding-bottom:72px}
+.pill-tag{display:inline-block;font-size:.78rem;font-weight:500;color:var(--accent);background:var(--accent-soft);padding:5px 10px;border-radius:999px;margin-bottom:18px}
+.hero h1{font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.08;letter-spacing:-.035em;margin:0 0 18px;font-weight:700}
+.grad{background:linear-gradient(90deg,var(--accent),#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:1.08rem;color:var(--ink-2);line-height:1.6;margin:0 0 26px;max-width:540px}
+.hero-cta{display:flex;gap:10px;flex-wrap:wrap}
+.checks{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--muted);font-size:.86rem}
+.checks li{display:flex;align-items:center;gap:7px}
+.checks li::before{content:"";width:16px;height:16px;border-radius:50%;background:var(--green-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316a34a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/10px no-repeat}
+
+/* Aperçu de l'application (décoratif) */
+.mock{border:1px solid var(--line-2);border-radius:14px;background:#fff;box-shadow:0 30px 60px -25px rgba(30,41,90,.28),0 10px 20px -10px rgba(30,41,90,.12);overflow:hidden;transform:perspective(1600px) rotateY(-6deg) rotateX(2deg);transition:transform .4s ease}
+.mock:hover{transform:none}
+.mock-bar{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--side)}
+.mock-bar i{width:9px;height:9px;border-radius:50%;background:#e2e4e9}
+.mock-bar span{margin-left:10px;font-size:.74rem;font-weight:600;color:var(--ink-2)}
+.mock-body{display:grid;grid-template-columns:54px 1fr;min-height:300px}
+.mock-side{border-right:1px solid var(--line);background:var(--side);padding:12px 10px;display:flex;flex-direction:column;gap:9px}
+.mock-side b{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#7c3aed);margin-bottom:6px}
+.mock-side span{height:7px;border-radius:4px;background:#e6e8ee}
+.mock-side span.on{background:#c7d3fb}
+.mock-main{padding:14px 16px;min-width:0}
+.mock-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mock-kpis div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.mock-kpis small{display:block;font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock-kpis strong{display:block;font-size:.92rem;font-weight:600;margin:2px 0;white-space:nowrap}
+.mock-kpis em{font-style:normal;font-size:.6rem;font-weight:600;padding:1px 5px;border-radius:3px;background:var(--gray-soft);color:var(--ink-2)}
+.mock-kpis em.up{background:var(--green-soft);color:var(--green)}
+.mock-kpis em.down{background:var(--red-soft);color:var(--red)}
+.mock-chart{display:flex;align-items:flex-end;gap:8px;height:96px;margin:14px 0;padding:0 4px;border-bottom:1px solid var(--line)}
+.mock-chart span{flex:1;background:#c7d3fb;border-radius:3px 3px 0 0;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+.mock-chart span.on{background:var(--accent)}
+.mock-chart span:nth-child(2){animation-delay:.05s}.mock-chart span:nth-child(3){animation-delay:.1s}.mock-chart span:nth-child(4){animation-delay:.15s}
+.mock-chart span:nth-child(5){animation-delay:.2s}.mock-chart span:nth-child(6){animation-delay:.25s}.mock-chart span:nth-child(7){animation-delay:.3s}.mock-chart span:nth-child(8){animation-delay:.35s}
+@keyframes grow{from{transform:scaleY(0);transform-origin:bottom}to{transform:scaleY(1);transform-origin:bottom}}
+.mock-rows div{display:grid;grid-template-columns:72px 1fr auto auto;gap:10px;align-items:center;font-size:.68rem;padding:7px 0;border-bottom:1px solid var(--line)}
+.mock-rows div:last-child{border-bottom:0}
+.mock-rows b{font-weight:500;color:var(--muted);white-space:nowrap}
+.mock-rows span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.mock-rows i{font-style:normal;font-size:.6rem;padding:1px 5px;border-radius:3px}
+.mock-rows i.ok{background:var(--green-soft);color:var(--green)}
+.mock-rows i.wait{background:var(--yellow-soft);color:var(--yellow)}
+.mock-rows i.late{background:var(--red-soft);color:var(--red)}
+.mock-rows strong{font-weight:600;text-align:right}
+
+.features,.steps{padding-top:72px;padding-bottom:24px;scroll-margin-top:64px}
+.sec-title{font-size:clamp(1.5rem,2.6vw,2rem);letter-spacing:-.025em;margin:0 0 8px;text-align:center}
+.sec-lead{color:var(--muted);text-align:center;margin:0 0 36px}
+.fgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.fgrid article{border:1px solid var(--line);border-radius:12px;padding:22px;transition:border-color .2s,box-shadow .2s,transform .2s}
+.fgrid article:hover{border-color:#d0d8f5;box-shadow:0 12px 30px -18px rgba(47,91,234,.35);transform:translateY(-2px)}
+.fic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);margin-bottom:14px}
+.fic svg{width:19px;height:19px}
+.fgrid h3,.steps h3{font-size:1rem;margin:0 0 6px;letter-spacing:-.01em}
+.fgrid p,.steps p{margin:0;color:var(--muted);font-size:.9rem;line-height:1.55}
+.steps ol{list-style:none;padding:0;margin:32px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;counter-reset:s}
+.steps li{position:relative;padding:22px;border-radius:12px;background:var(--side);border:1px solid var(--line)}
+.steps li b{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-size:.85rem;margin-bottom:12px}
+.cta-band{margin-top:64px;margin-bottom:56px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding:36px 40px;border-radius:16px;background:linear-gradient(120deg,#16204a,#2f5bea 60%,#7c3aed);color:#fff;max-width:1112px}
+.cta-band h2{margin:0 0 6px;font-size:1.5rem;letter-spacing:-.02em}
+.cta-band p{margin:0;color:rgba(255,255,255,.8)}
+.cta-band .btn{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff}
+.cta-band .btn:hover{background:rgba(255,255,255,.18)}
+.cta-band .btn.primary{background:#fff;color:var(--ink);border-color:#fff}
+.lfoot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:22px;padding-bottom:40px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+
+/* Connexion */
+.auth-page{min-height:calc(100vh - 65px);background:radial-gradient(1200px 500px at 50% -10%,var(--accent-soft),transparent 70%),var(--side);padding:56px 16px}
+.auth-card{max-width:420px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:32px;box-shadow:0 24px 50px -30px rgba(30,41,90,.3);text-align:center}
+.auth-card h1{font-size:1.45rem;letter-spacing:-.02em;margin:0 0 4px}
+.auth-sub{color:var(--muted);margin:0 0 20px}
+.auth-card .status{font-size:.86rem;text-align:left}
+.auth-card .field{text-align:left}
+.auth-card input{height:40px}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--gray-soft);border-radius:8px;margin-bottom:6px}
+.auth-tabs a{padding:7px 0;border-radius:6px;color:var(--muted);font-weight:500;font-size:.86rem}
+.auth-tabs a.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.auth-actions{display:grid;gap:8px;margin-top:18px}
+.auth-actions button{height:40px;width:100%}
+.auth-card details{text-align:left}
+.auth-foot{margin:22px 0 0;font-size:.84rem;color:var(--muted)}
+
+@media(max-width:900px){
+ .hero{grid-template-columns:1fr;padding-top:44px;padding-bottom:40px;gap:36px}
+ .mock{transform:none}
+ .fgrid,.steps ol{grid-template-columns:1fr}
+ .lnav{display:none}
+ .cta-band{padding:28px 24px;margin-left:16px;margin-right:16px}
+}
+@media(max-width:560px){
+ .lwrap{padding-left:16px;padding-right:16px}
+ .lhead .lwrap{gap:10px}
+ .mock-body{grid-template-columns:1fr}
+ .mock-side{display:none}
+ .mock-kpis{gap:6px}
+ .mock-kpis div{padding:7px}
+ .mock-kpis strong{font-size:.8rem}
+ .wordmark{display:none}
+ .lactions .btn{padding:0 10px}
+ .mock-rows div{grid-template-columns:auto 1fr auto}
+ .mock-rows strong{display:none}
+ .auth-card{padding:24px 20px}
+}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<div id="landing">
+ <header class="lhead">
+  <div class="lwrap">
+   <a class="logo" href="#/accueil" aria-label="Devis &amp; Factures, accueil">
+    <svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lgA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f5bea"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lgA)"/><path d="M10.5 7.5h7.5l4.5 4.5v11.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Z" fill="#fff"/><path d="M18 7.5V12h4.5" fill="none" stroke="#c7d3fb" stroke-width="1.4" stroke-linejoin="round"/><path d="m12.6 18.4 2.3 2.3 4.5-4.8" fill="none" stroke="#2f5bea" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="wordmark">Devis <b>&amp;</b> Factures</span>
+   </a>
+   <nav class="lnav" aria-label="Sections">
+    <a href="#fonctionnalites" data-scroll>Fonctionnalités</a>
+    <a href="#etapes" data-scroll>Comment ça marche</a>
+   </nav>
+   <div class="lactions">
+    <a class="btn ghost" href="#/connexion">Se connecter</a>
+    <a class="btn primary" href="#/inscription">Créer un compte</a>
+   </div>
+  </div>
+ </header>
+
+ <!-- Présentation -->
+ <main id="landingHome" class="lpage">
+  <section class="hero lwrap">
+   <div class="hero-text">
+    <span class="pill-tag">Pour les artisans, indépendants et petites entreprises</span>
+    <h1>Vos devis et factures,<br><span class="grad">sans prise de tête.</span></h1>
+    <p class="lead">Créez un devis en quelques minutes, transformez-le en facture conforme en un clic, puis suivez vos paiements et votre chiffre d'affaires au même endroit.</p>
+    <div class="hero-cta">
+     <a class="btn primary lg" href="#/inscription">Créer un compte</a>
+     <a class="btn lg" href="#/editeur">Essayer sans compte</a>
+    </div>
+    <ul class="checks">
+     <li>Mentions légales intégrées</li><li>Numérotation des factures sans trou</li><li>Sur ordinateur et téléphone</li>
+    </ul>
+   </div>
+
+   <div class="mock" aria-hidden="true">
+    <div class="mock-bar"><i></i><i></i><i></i><span>Tableau de bord</span></div>
+    <div class="mock-body">
+     <div class="mock-side"><b></b><span class="on"></span><span></span><span></span><span></span></div>
+     <div class="mock-main">
+      <div class="mock-kpis">
+       <div><small>Facturé ce mois-ci</small><strong>12 480 €</strong><em class="up">+18 %</em></div>
+       <div><small>À encaisser</small><strong>4 236 €</strong><em>3 factures</em></div>
+       <div><small>En retard</small><strong>890 €</strong><em class="down">1 facture</em></div>
+      </div>
+      <div class="mock-chart">
+       <span style="height:38%"></span><span style="height:52%"></span><span style="height:44%"></span><span style="height:70%"></span>
+       <span style="height:58%"></span><span style="height:82%"></span><span style="height:64%"></span><span class="on" style="height:92%"></span>
+      </div>
+      <div class="mock-rows">
+       <div><b>F-2026-024</b><span>Boulangerie Martin</span><i class="ok">Payée</i><strong>1 840 €</strong></div>
+       <div><b>F-2026-023</b><span>SCI Les Tilleuls</span><i class="wait">À payer</i><strong>3 260 €</strong></div>
+       <div><b>F-2026-022</b><span>Café du Port</span><i class="late">En retard</i><strong>890 €</strong></div>
+      </div>
+     </div>
+    </div>
+   </div>
+  </section>
+
+  <section class="features lwrap" id="fonctionnalites">
+   <h2 class="sec-title">Tout ce qu'il faut pour facturer sereinement</h2>
+   <p class="sec-lead">Des outils simples, pensés pour le quotidien d'un indépendant.</p>
+   <div class="fgrid">
+    <article><span class="fic"><svg class="i" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><h3>Devis en quelques minutes</h3><p>Vos clients et vos prestations sont enregistrés, les totaux HT, TVA et TTC se calculent seuls, le PDF est prêt à envoyer.</p></article>
+    <article><span class="fic"><svg class="i" viewBox="0 0 24 24"><path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z"/><path d="M8 9h8M8 13h6"/></svg></span><h3>Factures conformes</h3><p>Un clic transforme le devis en facture : numérotation continue, échéance, mentions légales et pénalités de retard.</p></article>
+    <article><span class="fic"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Paiements suivis</h3><p>Repérez d'un coup d'œil ce qui est payé, à payer ou en retard, avec la date de paiement et votre délai moyen.</p></article>
+    <article><span class="fic"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></span><h3>Chiffre d'affaires</h3><p>Par mois, par trimestre ou par année, avec la TVA collectée et un export pour votre comptable.</p></article>
+    <article><span class="fic"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1"/></svg></span><h3>Plusieurs entreprises</h3><p>Gérez plusieurs activités, chacune avec son SIRET, ses mentions légales et ses conditions de paiement.</p></article>
+    <article><span class="fic"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><h3>Vos données à l'abri</h3><p>Chaque compte ne voit que ses propres données, accessibles partout et exportables à tout moment.</p></article>
+   </div>
+  </section>
+
+  <section class="steps lwrap" id="etapes">
+   <h2 class="sec-title">Comment ça marche</h2>
+   <ol>
+    <li><b>1</b><h3>Créez votre compte</h3><p>Renseignez votre entreprise une fois : elle apparaîtra sur tous vos documents.</p></li>
+    <li><b>2</b><h3>Faites votre devis</h3><p>Choisissez le client, ajoutez les prestations, téléchargez le PDF et envoyez-le.</p></li>
+    <li><b>3</b><h3>Facturez et encaissez</h3><p>Le devis accepté devient une facture en un clic, puis vous suivez son paiement.</p></li>
+   </ol>
+  </section>
+
+  <section class="cta-band lwrap">
+   <div>
+    <h2>Prêt à faire votre premier devis ?</h2>
+    <p>Créez votre compte en une minute, ou essayez l'éditeur tout de suite.</p>
+   </div>
+   <div class="hero-cta"><a class="btn primary lg" href="#/inscription">Créer un compte</a><a class="btn lg" href="#/editeur">Essayer sans compte</a></div>
+  </section>
+
+  <footer class="lfoot lwrap">
+   <span>© <span id="year"></span> Devis &amp; Factures</span>
+   <span><a href="#/connexion">Se connecter</a> · <a href="#/inscription">Créer un compte</a></span>
+  </footer>
+ </main>
+
+ <!-- Connexion et inscription -->
+ <main id="landingAuth" class="lpage auth-page">
+  <section class="auth-card" id="authSection">
+   <svg class="logo-mark big" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lgB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f5bea"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lgB)"/><path d="M10.5 7.5h7.5l4.5 4.5v11.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Z" fill="#fff"/><path d="M18 7.5V12h4.5" fill="none" stroke="#c7d3fb" stroke-width="1.4" stroke-linejoin="round"/><path d="m12.6 18.4 2.3 2.3 4.5-4.8" fill="none" stroke="#2f5bea" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+   <h1 id="authTitle">Connexion</h1>
+   <p class="auth-sub" id="authSub">Content de vous revoir.</p>
+   <h2 id="dbTitle" hidden>Base de données</h2>
+   <p id="dbStatus" class="status"></p>
+   <div id="dbLogin" hidden>
+    <div class="auth-tabs" role="tablist">
+     <a href="#/connexion" id="tabLogin" role="tab">Se connecter</a>
+     <a href="#/inscription" id="tabSignup" role="tab">Créer un compte</a>
+    </div>
+    <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username" placeholder="vous@exemple.fr"></div>
+    <div class="field"><label for="authPass">Mot de passe</label><input id="authPass" type="password" autocomplete="current-password" placeholder="6 caractères minimum"></div>
+    <div class="auth-actions">
+     <button id="login" class="primary">Se connecter</button>
+     <button id="signup" class="primary">Créer mon compte</button>
+     <button id="forgot" class="ghost">Mot de passe oublié ?</button>
+    </div>
+   </div>
+   <div id="dbReset" hidden>
+    <div class="field"><label for="newPass">Nouveau mot de passe</label><input id="newPass" type="password" autocomplete="new-password"></div>
+    <div class="auth-actions"><button id="setPass" class="primary">Enregistrer le mot de passe</button></div>
+   </div>
+   <details id="dbConfig">
+    <summary>Configuration Supabase</summary>
+    <div class="field"><label for="sbUrl">URL du projet</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"></div>
+    <div class="field"><label for="sbKey">Clé publique (anon / publishable)</label><input id="sbKey"></div>
+    <div class="actions" style="margin-top:12px"><button id="sbSave">Enregistrer la configuration</button></div>
+    <p class="hint">Les étapes pour créer la base gratuite sont décrites dans SUPABASE.md. N'utilisez jamais la clé secrète (service_role).</p>
+   </details>
+   <p class="auth-foot"><a href="#/accueil">← Retour à l'accueil</a> · <a href="#/editeur">Essayer sans compte</a></p>
+  </section>
+ </main>
+</div>
+
 <div class="app">
  <aside class="sidebar" id="sidebar">
-  <div class="brand">Devis <i aria-hidden="true"></i></div>
+  <a class="brand logo" href="#/tableau-de-bord">
+   <svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lgC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f5bea"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lgC)"/><path d="M10.5 7.5h7.5l4.5 4.5v11.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Z" fill="#fff"/><path d="M18 7.5V12h4.5" fill="none" stroke="#c7d3fb" stroke-width="1.4" stroke-linejoin="round"/><path d="m12.6 18.4 2.3 2.3 4.5-4.8" fill="none" stroke="#2f5bea" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+   <span class="wordmark">Devis <b>&amp;</b> Factures</span>
+  </a>
   <nav class="nav" aria-label="Navigation">
    <a href="#/tableau-de-bord" data-route="tableau-de-bord"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>Tableau de bord</a>
    <a href="#/editeur" data-route="editeur"><svg class="i" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Éditeur de devis</a>
@@ -309,7 +570,7 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
    <a href="#/compte" data-route="compte"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Compte</a>
   </nav>
   <div class="side-foot">
-   <a class="nav-link guest-only" href="#/compte"><svg class="i" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Se connecter</a>
+   <a class="nav-link guest-only" href="#/connexion"><svg class="i" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Se connecter</a>
    <div id="dbUser" class="user" hidden>
     <span class="av" id="userInitial" style="background:#111827"></span>
     <span class="who"><strong id="userName"></strong><small id="userEmail"></small></span>
@@ -330,7 +591,6 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
   </header>
 
   <div class="content" id="content">
-   <p id="msg" class="msg" role="status" aria-live="polite"></p>
 
    <!-- Tableau de bord -->
    <div class="view" id="viewDashboard">
@@ -338,7 +598,7 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
      <div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></div>
      <h2>Suivez votre activité</h2>
      <p>Connectez-vous pour retrouver vos devis et factures, et voir votre chiffre d'affaires, les montants à encaisser et les retards de paiement.</p>
-     <div class="actions"><a class="btn" href="#/editeur">Créer un devis sans compte</a><a class="btn primary" href="#/compte">Se connecter</a></div>
+     <div class="actions"><a class="btn" href="#/editeur">Créer un devis sans compte</a><a class="btn primary" href="#/connexion">Se connecter</a></div>
     </div>
     <div class="auth-only">
      <div class="toolbar"><span class="hint" style="margin:0" id="dashDate"></span></div>
@@ -456,7 +716,7 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
      <div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></div>
      <h2>Vos devis enregistrés</h2>
      <p>Connectez-vous pour enregistrer vos devis, suivre leur statut et les convertir en factures.</p>
-     <div class="actions"><a class="btn primary" href="#/compte">Se connecter</a></div>
+     <div class="actions"><a class="btn primary" href="#/connexion">Se connecter</a></div>
     </div>
     <div class="auth-only">
      <div class="toolbar">
@@ -479,7 +739,7 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
      <div class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z"/></svg></div>
      <h2>Vos factures</h2>
      <p>Connectez-vous pour retrouver vos factures, suivre les paiements et repérer les retards.</p>
-     <div class="actions"><a class="btn primary" href="#/compte">Se connecter</a></div>
+     <div class="actions"><a class="btn primary" href="#/connexion">Se connecter</a></div>
     </div>
     <div class="auth-only">
      <div class="tabs" role="tablist">
@@ -585,36 +845,10 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
       <div class="card-head"><div><h2>Mon compte</h2><p id="accountEmail"></p></div><button id="logout2">Se déconnecter</button></div>
       <p class="hint" style="margin:0">Devis, factures, entreprises et clients sont enregistrés en ligne et disponibles sur tous vos appareils.</p>
      </div>
-     <section class="card" id="authSection">
-      <div class="card-head"><h2 id="dbTitle">Base de données</h2></div>
-      <p id="dbStatus" class="status"></p>
-      <div id="dbLogin" hidden>
-       <div class="grid">
-        <div><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username"></div>
-        <div><label for="authPass">Mot de passe</label><input id="authPass" type="password" autocomplete="current-password"></div>
-       </div>
-       <div class="actions" style="margin-top:14px">
-        <button id="forgot" class="ghost">Mot de passe oublié</button>
-        <button id="signup">Créer un compte</button>
-        <button id="login" class="primary">Se connecter</button>
-       </div>
-      </div>
-      <div id="dbReset" hidden>
-       <div class="grid">
-        <div><label for="newPass">Nouveau mot de passe</label><input id="newPass" type="password" autocomplete="new-password"></div>
-       </div>
-       <div class="actions" style="margin-top:14px"><button id="setPass" class="primary">Enregistrer le mot de passe</button></div>
-      </div>
-      <details id="dbConfig">
-       <summary>Configuration Supabase</summary>
-       <div class="grid">
-        <div><label for="sbUrl">URL du projet</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"></div>
-        <div><label for="sbKey">Clé publique (anon / publishable)</label><input id="sbKey"></div>
-       </div>
-       <div class="actions" style="margin-top:12px"><button id="sbSave">Enregistrer la configuration</button></div>
-       <p class="hint">Les étapes pour créer la base gratuite sont décrites dans SUPABASE.md. N'utilisez jamais la clé secrète (service_role).</p>
-      </details>
-     </section>
+     <div class="card guest-only">
+      <div class="card-head"><div><h2>Mon compte</h2><p>Connectez-vous pour enregistrer vos devis et factures en ligne et les retrouver sur tous vos appareils.</p></div></div>
+      <div class="actions" style="justify-content:flex-start"><a class="btn" href="#/inscription">Créer un compte</a><a class="btn primary" href="#/connexion">Se connecter</a></div>
+     </div>
     </div>
    </div>
   </div>
@@ -625,6 +859,8 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
   <div class="body" id="panelBody"></div>
  </aside>
 </div>
+
+<p id="msg" class="msg" role="status" aria-live="polite"></p>
 
 <div class="mobilebar">
  <div><small>Total TTC</small><strong id="ttcBar">0,00 €</strong></div>
@@ -1010,7 +1246,8 @@ function renderDb(){
     : resettingPassword ? 'Choisissez votre nouveau mot de passe.'
     : user ? 'Connecté : ' + user.email + '. Devis, factures, entreprises et clients sont enregistrés en ligne.'
     : 'Connectez-vous, ou créez un compte, pour enregistrer vos devis et factures.';
-  $('dbLogin').hidden = !sb || !!user;
+  $('dbStatus').hidden = !!sb && !user && !resettingPassword;
+  $('dbLogin').hidden = !sb || !!user || resettingPassword;
   $('dbReset').hidden = !resettingPassword;
   $('dbUser').hidden = !user || resettingPassword;
   // Une fois connecté, le compte s'affiche en bas de la barre latérale
@@ -1059,9 +1296,14 @@ async function onSession(session){
   if ((u && u.id) === (user && user.id)) return;
   user = u;
   renderDb();
+  // Connecté depuis l'accueil ou la page de connexion : direction le tableau de bord
+  // (on regarde la page affichée : sans adresse précise, elle dépend de la connexion)
+  const shown = document.body.dataset.route;
+  if (user && LANDING[shown] && !resettingPassword) go('tableau-de-bord');
+  // Déconnecté depuis une page de l'application : retour à l'accueil
+  if (!user && !LANDING[shown] && shown !== 'editeur') go('accueil');
   await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user)]);
   if (user){
-    if (currentRoute() === 'compte' && !resettingPassword) go('tableau-de-bord');
     refreshLists();
     if (!currentDevis) $('dNum').value = await nextNumber();
   } else {
@@ -1085,9 +1327,14 @@ function initSupabase(){
   // Les appels à la base se font hors du callback, comme le recommande Supabase.
   if (sb) sb.auth.onAuthStateChange((event, session) => setTimeout(() => {
     // Arrivée depuis le lien « mot de passe oublié » reçu par email
-    if (event === 'PASSWORD_RECOVERY'){ resettingPassword = true; renderDb(); go('compte'); }
-    onSession(session);
+    if (event === 'PASSWORD_RECOVERY'){ resettingPassword = true; renderDb(); go('connexion'); }
+    onSession(session).finally(() => document.body.classList.remove('booting'));
   }, 0));
+  // En attendant de savoir si l'utilisateur est connecté, rien n'est affiché (au plus 2,5 s)
+  if (sb){
+    document.body.classList.add('booting');
+    setTimeout(() => document.body.classList.remove('booting'), 2500);
+  }
 }
 
 $('sbSave').onclick = () => {
@@ -1138,6 +1385,7 @@ $('setPass').onclick = async () => {
     resettingPassword = false;
     $('newPass').value = '';
     renderDb();
+    go('tableau-de-bord');
     toast('Mot de passe modifié.');
   }
 };
@@ -1231,17 +1479,31 @@ const ROUTES = {
   entreprise: ['viewSettings', 'Entreprise'],
   compte: ['viewAccount', 'Compte']
 };
+// Pages publiques : présentation, connexion et inscription
+const LANDING = {accueil: 'Devis & Factures — devis et factures pour indépendants', connexion: 'Connexion — Devis & Factures', inscription: 'Créer un compte — Devis & Factures'};
 const currentRoute = () => {
   const r = location.hash.replace(/^#\/?/, '');
-  return ROUTES[r] ? r : 'tableau-de-bord';
+  return ROUTES[r] || LANDING[r] ? r : user ? 'tableau-de-bord' : 'accueil';
 };
 function showRoute(){
   const r = currentRoute();
+  const landing = !!LANDING[r];
+  document.body.classList.toggle('on-landing', landing);
+  document.body.dataset.route = r;
+  if (landing){
+    // Déjà connecté : la présentation et la connexion mènent au tableau de bord
+    if (user && !resettingPassword){ go('tableau-de-bord'); return; }
+    document.title = LANDING[r];
+    if (r !== 'accueil') setAuthMode(r === 'inscription');
+    closePanel();
+    window.scrollTo(0, 0);
+    return;
+  }
+  document.title = ROUTES[r][1] + ' — Devis & Factures';
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === ROUTES[r][0]));
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.route === r));
   $('pageTitle').textContent = r === 'editeur' && currentDevis ? 'Devis ' + $('dNum').value : ROUTES[r][1];
   $('exportBtn').hidden = !user || (r !== 'devis' && r !== 'factures');
-  document.body.dataset.route = r;
   document.body.classList.remove('menu-open');
   closePanel();
   $('content').scrollTop = 0;
@@ -1258,6 +1520,31 @@ $('menuBtn').onclick = () => document.body.classList.toggle('menu-open');
 $('scrim').onclick = () => document.body.classList.remove('menu-open');
 $('newQuoteBtn').onclick = () => { newQuote(); go('editeur'); };
 $('logout2').onclick = () => $('logout').click();
+
+// Connexion ou création de compte : même formulaire, boutons et textes adaptés
+function setAuthMode(signup){
+  $('authTitle').textContent = resettingPassword ? 'Nouveau mot de passe' : signup ? 'Créer un compte' : 'Connexion';
+  $('authSub').textContent = resettingPassword ? 'Choisissez votre nouveau mot de passe.'
+    : signup ? 'Vos devis et factures, enregistrés en ligne et disponibles partout.' : 'Content de vous revoir.';
+  $('login').hidden = $('forgot').hidden = signup;
+  $('signup').hidden = !signup;
+  $('authPass').autocomplete = signup ? 'new-password' : 'current-password';
+  $('tabLogin').classList.toggle('active', !signup);
+  $('tabSignup').classList.toggle('active', signup);
+  $('tabLogin').setAttribute('aria-selected', !signup);
+  $('tabSignup').setAttribute('aria-selected', signup);
+}
+// Entrée valide le formulaire affiché
+['authEmail', 'authPass'].forEach(id => $(id).addEventListener('keydown', e => {
+  if (e.key === 'Enter') ($('signup').hidden ? $('login') : $('signup')).click();
+}));
+$('newPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('setPass').click(); });
+// Liens vers les sections de la présentation, sans changer de page
+document.querySelectorAll('[data-scroll]').forEach(a => a.onclick = e => {
+  e.preventDefault();
+  document.querySelector(a.getAttribute('href')).scrollIntoView({behavior: 'smooth'});
+});
+$('year').textContent = new Date().getFullYear();
 
 // Menu « entreprise émettrice » de l'éditeur, synchronisé avec les profils d'entreprise
 function syncEmitter(){
