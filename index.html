@@ -148,7 +148,8 @@ button:disabled{opacity:.5;cursor:default}
  <div class="actions">
   <button id="reset">Nouveau devis</button>
   <button id="save" hidden>Enregistrer le devis</button>
-  <button id="pdf" class="primary">Télécharger en PDF</button>
+  <button id="invoicePdf" class="primary" hidden>Télécharger la facture (PDF)</button>
+  <button id="pdf" class="primary">Télécharger le devis (PDF)</button>
  </div>
 
  <section id="devisSection" style="margin-top:24px" hidden>
@@ -260,7 +261,11 @@ async function nextNumber(){
 
 function setCurrentDevis(d){
   currentDevis = d;
-  $('save').disabled = !!d && d.statut === 'facture';
+  const billed = !!d && d.statut === 'facture';
+  $('save').disabled = billed;
+  // Un devis facturé propose aussi le téléchargement de sa facture
+  $('invoicePdf').hidden = !billed;
+  $('pdf').classList.toggle('primary', !billed);
 }
 
 async function newQuote(){
@@ -695,7 +700,8 @@ async function convertQuote(row){
   }), 'Conversion impossible');
   if (!f) return;
   if (currentDevis && currentDevis.id === row.id) setCurrentDevis({id: row.id, statut: 'facture'});
-  toast('Facture ' + f.numero + ' créée à partir du devis ' + row.numero + '.');
+  invoicePDF(f);
+  toast('Facture ' + f.numero + ' créée à partir du devis ' + row.numero + ' et téléchargée. Vous la retrouvez dans « Mes factures ».');
   refreshLists();
 }
 
@@ -755,6 +761,11 @@ function refreshLists(){ return Promise.all([refreshDevis(), refreshFactures()])
 $('add').onclick = () => addLine();
 $('tva').onchange = calc;
 $('pdf').onclick = quotePDF;
+$('invoicePdf').onclick = async () => {
+  const f = await db(sb.from('factures').select('*').eq('devis_id', currentDevis.id).maybeSingle(), 'Lecture de la facture impossible');
+  if (f && f !== true) invoicePDF(f);
+  else if (f) toast('Facture introuvable pour ce devis.', true);
+};
 $('save').onclick = saveQuote;
 $('reset').onclick = () => { newQuote(); toast(''); };
 
