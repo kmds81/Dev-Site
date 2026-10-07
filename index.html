@@ -107,6 +107,24 @@ button:disabled{opacity:.5;cursor:default}
    <div><label for="eTel">Téléphone</label><input id="eTel"></div>
   </div>
   <div style="margin-top:12px"><label for="eAdr">Adresse</label><textarea id="eAdr" rows="2"></textarea></div>
+  <details id="legal">
+   <summary>Mentions légales et conditions des factures</summary>
+   <p class="hint">Ces informations figurent sur les devis et les factures de cette entreprise.
+    Pour une entreprise individuelle, ajoutez « EI » au nom (ex. « Jean Dupont EI »).</p>
+   <div class="grid" style="margin-top:12px">
+    <div><label for="eForme">Forme juridique</label><input id="eForme" list="formes" placeholder="Ex. SARL, SAS, EI"></div>
+    <div><label for="eCapital">Capital social (sociétés)</label><input id="eCapital" placeholder="Ex. 1 000 €"></div>
+    <div><label for="eRcs">Immatriculation (RCS / RM)</label><input id="eRcs" placeholder="Ex. RCS Paris 123 456 789"></div>
+    <div><label for="eTvaIntra">N° de TVA intracommunautaire</label><input id="eTvaIntra" placeholder="Ex. FR12 123456789"></div>
+    <div><label for="eDelai">Délai de paiement des factures (jours)</label><input id="eDelai" type="number" min="0" step="1"></div>
+   </div>
+   <datalist id="formes"><option value="EI"><option value="EI (micro-entrepreneur)"><option value="EURL"><option value="SARL"><option value="SASU"><option value="SAS"></datalist>
+   <div style="margin-top:12px"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
+    <textarea id="eAssurance" rows="2"></textarea></div>
+   <div style="margin-top:12px"><label for="eCondFacture">Conditions des factures (mode de paiement, coordonnées bancaires…)</label>
+    <textarea id="eCondFacture" rows="3"></textarea></div>
+   <p class="hint">Les factures ajoutent toujours : pénalités de retard, indemnité forfaitaire de 40 € et absence d'escompte.</p>
+  </details>
  </section>
 
  <section>
@@ -119,6 +137,7 @@ button:disabled{opacity:.5;cursor:default}
   <div class="grid">
    <div><label for="cNom">Nom du client</label><input id="cNom"></div>
    <div><label for="cEmail">Email du client</label><input id="cEmail" type="email"></div>
+   <div><label for="cSiren">SIREN du client (si professionnel)</label><input id="cSiren"></div>
    <div><label for="dNum">N° de devis</label><input id="dNum"></div>
    <div><label for="dDate">Date</label><input id="dDate" type="date"></div>
    <div><label for="dValid">Valable jusqu'au</label><input id="dValid" type="date"></div>
@@ -141,14 +160,15 @@ button:disabled{opacity:.5;cursor:default}
    <div><span>TVA</span><span id="tvaAmt">0,00 €</span></div>
    <div class="ttc"><span>Total TTC</span><span id="ttc">0,00 €</span></div>
   </div>
-  <div style="margin-top:14px"><label for="notes">Conditions (paiement, délais…)</label>
+  <div style="margin-top:14px"><label for="notes">Conditions du devis (paiement, délais…)</label>
    <textarea id="notes" rows="3">Paiement à 30 jours à réception de facture. Acompte de 30 % à la commande.</textarea></div>
  </section>
 
  <div class="actions">
   <button id="reset">Nouveau devis</button>
   <button id="save" hidden>Enregistrer le devis</button>
-  <button id="pdf" class="primary">Télécharger en PDF</button>
+  <button id="invoicePdf" class="primary" hidden>Télécharger la facture (PDF)</button>
+  <button id="pdf" class="primary">Télécharger le devis (PDF)</button>
  </div>
 
  <section id="devisSection" style="margin-top:24px" hidden>
@@ -260,7 +280,11 @@ async function nextNumber(){
 
 function setCurrentDevis(d){
   currentDevis = d;
-  $('save').disabled = !!d && d.statut === 'facture';
+  const billed = !!d && d.statut === 'facture';
+  $('save').disabled = billed;
+  // Un devis facturé propose aussi le téléchargement de sa facture
+  $('invoicePdf').hidden = !billed;
+  $('pdf').classList.toggle('primary', !billed);
 }
 
 async function newQuote(){
@@ -276,10 +300,10 @@ async function newQuote(){
 // Profils enregistrés (entreprises, clients) : une liste choisie via un menu,
 // dont les champs du formulaire modifient le profil sélectionné.
 // Sans connexion, la liste est gardée dans le navigateur ; une fois connecté, dans la table profils.
-function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy}){
+function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy, defaults = {}}){
   let list = [], active = 0, remote = false;
   const timers = {};
-  const empty = () => Object.assign({id: newId()}, Object.fromEntries(fields.map(f => [f, ''])));
+  const empty = () => Object.assign({id: newId()}, Object.fromEntries(fields.map(f => [f, defaults[f] ?? ''])));
   const data = p => Object.fromEntries(fields.map(f => [f, p[f] || '']));
   const label = (p, i) => (p[fields[0]] || '').trim() || defaultName + ' ' + (i + 1);
   const storeActive = () => localStorage.setItem('devis_' + key + 'Active', active);
@@ -291,7 +315,7 @@ function profileManager({key, type, fields, select, addBtn, delBtn, defaultName,
     if (!l.length && legacy){
       // Reprend les valeurs enregistrées avant l'ajout des profils
       const p = empty();
-      fields.forEach(f => p[f] = localStorage.getItem('devis_' + f) || '');
+      fields.forEach(f => p[f] = localStorage.getItem('devis_' + f) || p[f]);
       l = [p];
     }
     return l.map(p => Object.assign(empty(), p, p.id ? {} : {id: newId()}));
@@ -424,8 +448,12 @@ function makePDF(d){
 
   doc.setFont('helvetica','bold').setFontSize(18).text(e.eNom || 'Votre entreprise', L, y);
   doc.setFont('helvetica','normal').setFontSize(10);
-  const emitter = [e.eAdr, e.eSiret && 'SIRET : ' + e.eSiret, e.eEmail, e.eTel].filter(Boolean).join('\n');
-  doc.text(doc.splitTextToSize(emitter, 90), L, y + 6);
+  const emitter = [e.eAdr,
+    [e.eForme, e.eCapital && 'au capital de ' + e.eCapital].filter(Boolean).join(' '),
+    e.eSiret && 'SIRET : ' + e.eSiret, e.eRcs, e.eTvaIntra && 'TVA intracommunautaire : ' + e.eTvaIntra,
+    e.eEmail, e.eTel].filter(Boolean).join('\n');
+  const emitterLines = doc.splitTextToSize(emitter, 95);
+  doc.text(emitterLines, L, y + 6);
 
   doc.setFont('helvetica','bold').setFontSize(16).text(d.titre + ' ' + d.numero, R, y, {align:'right'});
   doc.setFont('helvetica','normal').setFontSize(10);
@@ -434,10 +462,12 @@ function makePDF(d){
   y = 62;
   doc.setFont('helvetica','bold').text('Client', 120, y);
   doc.setFont('helvetica','normal');
-  const client = [c.cNom, c.cAdr, c.cEmail].filter(Boolean).join('\n');
-  doc.text(doc.splitTextToSize(client, 75), 120, y + 5);
+  const client = [c.cNom, c.cAdr, c.cSiren && 'SIREN : ' + c.cSiren, c.cEmail].filter(Boolean).join('\n');
+  const clientLines = doc.splitTextToSize(client, 75);
+  doc.text(clientLines, 120, y + 5);
 
-  y = 95;
+  // Le tableau commence sous le plus long des blocs entreprise et client
+  y = Math.max(95, 26 + emitterLines.length * 4.3 + 6, 67 + clientLines.length * 4.3 + 6);
   doc.setFillColor(31,79,216).rect(L, y, R - L, 8, 'F');
   doc.setTextColor(255).setFont('helvetica','bold');
   doc.text('Description', L + 2, y + 5.5);
@@ -466,10 +496,13 @@ function makePDF(d){
   doc.text('Total TTC', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
 
   doc.setFont('helvetica','normal').setFontSize(9);
-  const footer = [Number(d.tva) === 0 && 'TVA non applicable, art. 293 B du CGI.', d.notes, d.mentions].filter(Boolean).join('\n');
+  const footer = [d.conditions, d.mentions, Number(d.tva) === 0 && 'TVA non applicable, art. 293 B du CGI.',
+    e.eAssurance && 'Assurance professionnelle : ' + e.eAssurance].filter(Boolean).join('\n');
   const footerLines = doc.splitTextToSize(footer, R - L);
-  doc.text(footerLines, L, y + 28);
-  if (d.signature) doc.text('Bon pour accord — date et signature :', L, y + 32 + footerLines.length * 4 + 10);
+  y += 28;
+  if (y + footerLines.length * 4 + (d.signature ? 14 : 0) > 285){ doc.addPage(); y = 20; }
+  doc.text(footerLines, L, y);
+  if (d.signature) doc.text('Bon pour accord — date et signature :', L, y + footerLines.length * 4 + 6);
 
   doc.save(d.fichier + '.pdf');
 }
@@ -479,6 +512,7 @@ function quotePDF(){
   makePDF(Object.assign(q, {
     titre: 'DEVIS',
     infos: ['Date : ' + frDate(q.date_devis), 'Valable jusqu\'au : ' + frDate(q.valide_jusqu)],
+    conditions: q.notes,
     signature: true,
     fichier: 'devis-' + q.numero
   }));
@@ -489,6 +523,8 @@ function invoicePDF(f){
   makePDF(Object.assign({}, f, {
     titre: 'FACTURE',
     infos: ['Date : ' + frDate(f.date_facture), 'Échéance : ' + frDate(f.echeance), f.devis_numero ? 'Devis n° ' + f.devis_numero : ''].filter(Boolean),
+    // Les factures créées avant l'ajout des conditions de facture reprennent celles du devis
+    conditions: 'eCondFacture' in f.entreprise ? f.entreprise.eCondFacture : f.notes,
     mentions: MENTIONS_FACTURE,
     fichier: 'facture-' + f.numero
   }));
@@ -690,12 +726,16 @@ async function convertQuote(row){
   // Enregistre d'abord les modifications en cours si ce devis est ouvert
   if (currentDevis && currentDevis.id === row.id && !await saveQuote()) return;
   const today = new Date();
+  // Délai de paiement de l'entreprise du devis (30 jours par défaut)
+  let delai = parseInt(currentDevis && currentDevis.id === row.id ? entreprises.current().eDelai : row.entreprise.eDelai, 10);
+  if (isNaN(delai) || delai < 0) delai = 30;
   const f = await db(sb.rpc('convertir_devis_en_facture', {
-    p_devis_id: row.id, p_date: isoDate(today), p_echeance: isoDate(new Date(today.getTime() + 30*864e5))
+    p_devis_id: row.id, p_date: isoDate(today), p_echeance: isoDate(new Date(today.getTime() + delai*864e5))
   }), 'Conversion impossible');
   if (!f) return;
   if (currentDevis && currentDevis.id === row.id) setCurrentDevis({id: row.id, statut: 'facture'});
-  toast('Facture ' + f.numero + ' créée à partir du devis ' + row.numero + '.');
+  invoicePDF(f);
+  toast('Facture ' + f.numero + ' créée à partir du devis ' + row.numero + ' et téléchargée. Vous la retrouvez dans « Mes factures ».');
   refreshLists();
 }
 
@@ -717,7 +757,7 @@ function statusSelect(options, value, onChange){
 }
 
 async function refreshDevis(){
-  const rows = await db(sb.from('devis').select('id, numero, date_devis, statut, client, total_ttc').order('created_at', {ascending: false}), 'Lecture des devis impossible');
+  const rows = await db(sb.from('devis').select('id, numero, date_devis, statut, entreprise, client, total_ttc').order('created_at', {ascending: false}), 'Lecture des devis impossible');
   if (!rows) return;
   $('devisEmpty').hidden = rows.length > 0;
   $('devisTable').hidden = !rows.length;
@@ -755,12 +795,19 @@ function refreshLists(){ return Promise.all([refreshDevis(), refreshFactures()])
 $('add').onclick = () => addLine();
 $('tva').onchange = calc;
 $('pdf').onclick = quotePDF;
+$('invoicePdf').onclick = async () => {
+  const f = await db(sb.from('factures').select('*').eq('devis_id', currentDevis.id).maybeSingle(), 'Lecture de la facture impossible');
+  if (f && f !== true) invoicePDF(f);
+  else if (f) toast('Facture introuvable pour ce devis.', true);
+};
 $('save').onclick = saveQuote;
 $('reset').onclick = () => { newQuote(); toast(''); };
 
-const entreprises = profileManager({key:'profiles', type:'entreprise', fields:['eNom','eSiret','eEmail','eTel','eAdr'],
-  select:'profile', addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true});
-const clients = profileManager({key:'clients', type:'client', fields:['cNom','cEmail','cAdr'],
+const entreprises = profileManager({key:'profiles', type:'entreprise',
+  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture'],
+  select:'profile', addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true,
+  defaults: {eDelai: '30', eCondFacture: 'Paiement par virement à la date d\'échéance indiquée.'}});
+const clients = profileManager({key:'clients', type:'client', fields:['cNom','cEmail','cAdr','cSiren'],
   select:'client', addBtn:'addClient', delBtn:'delClient', defaultName:'Client'});
 loadSaved();
 newQuote();
