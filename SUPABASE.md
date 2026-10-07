@@ -79,9 +79,17 @@ permet à chacun de la relier à son propre projet.
 - **Convertir en facture** : crée une facture numérotée `F-2026-001`, `F-2026-002`… (numérotation
   continue par année et par compte, sans trou), datée du jour, avec une échéance à 30 jours. Le
   devis passe au statut « Facturé » et ne peut plus être modifié ni supprimé.
-- **Mes factures** : statut de paiement (à payer / payée) et téléchargement du PDF.
-  Une facture émise ne peut être ni modifiée ni supprimée (la base le refuse) ; pour corriger
-  une facture, il faudra émettre un avoir.
+- **Factures** : statut de paiement (à payer / payée), date de paiement facultative et
+  téléchargement du PDF. Une facture émise ne peut être ni modifiée ni supprimée (la base le
+  refuse) ; seuls son statut et sa date de paiement peuvent changer. Pour corriger une facture,
+  il faudra émettre un avoir.
+
+## Mettre à jour la base
+
+Quand une nouvelle version ajoute quelque chose à la base (par exemple la date de paiement des
+factures), relancez simplement tout le contenu de `supabase/schema.sql` dans **SQL Editor**. Le
+script ne touche pas aux données existantes. Tant qu'il n'est pas relancé, la page continue de
+fonctionner, sans la nouveauté (elle prévient quand c'est le cas).
 
 ## Offre gratuite ou payante
 
