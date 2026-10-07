@@ -94,6 +94,23 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
 .toolbar select{width:auto;height:32px;min-height:32px;padding:0 28px 0 10px}
 .toolbar .end{margin-left:auto;display:flex;gap:8px}
 
+/* Onglets */
+.tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line)}
+.tab{height:40px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none;box-shadow:none;color:var(--muted);padding:0 10px;margin-bottom:-1px}
+.tab:hover{background:none;color:var(--ink)}
+.tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+
+/* Analyse du chiffre d'affaires */
+.ca-controls{align-items:flex-end;gap:12px}
+.ca-controls label{margin-bottom:4px}
+.ca-controls input,.ca-controls select{height:32px;min-height:32px;width:auto}
+.ca-controls input[type=date]{width:150px}
+.list.static tbody tr{cursor:default}
+.list tfoot td{padding:0 12px;height:46px;font-weight:600;border-top:1px solid var(--line-2);white-space:nowrap}
+.list tfoot td:first-child{padding-left:24px}.list tfoot td:last-child{padding-right:24px}
+.share{display:inline-block;width:60px;height:4px;border-radius:2px;background:var(--gray-soft);vertical-align:middle;margin-right:8px;overflow:hidden}
+.share span{display:block;height:100%;background:var(--accent)}
+
 /* Indicateurs */
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--line);padding:0 24px 16px}
 .kpi{padding:2px 20px;border-left:1px solid var(--line);min-width:0}
@@ -256,6 +273,10 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
  .list th:last-child,.list td:last-child{padding-right:14px}
  .list .hide-sm{display:none}
  .pager{padding:12px 14px}
+ .tabs{padding:0 14px}
+ .list tfoot td:first-child{padding-left:14px}.list tfoot td:last-child{padding-right:14px}
+ .ca-controls>div:not(.end){flex:1 1 140px}
+ .ca-controls input,.ca-controls select,.ca-controls input[type=date]{width:100%}
  body[data-route="editeur"] .mobilebar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(17,24,39,.06)}
  .mobilebar small{display:block;color:var(--muted);font-size:.7rem}
  .mobilebar strong{font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums}
@@ -460,17 +481,59 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
      <div class="actions"><a class="btn primary" href="#/compte">Se connecter</a></div>
     </div>
     <div class="auth-only">
-     <div class="toolbar">
-      <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="factSearch" placeholder="Rechercher une facture, un client…" aria-label="Rechercher une facture"></div>
-      <select id="factFilter" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option value="emise">À payer</option><option value="retard">En retard</option><option value="payee">Payée</option></select>
+     <div class="tabs" role="tablist">
+      <button class="tab active" id="tabFactList" role="tab" aria-selected="true">Liste des factures</button>
+      <button class="tab" id="tabFactCa" role="tab" aria-selected="false">Chiffre d'affaires</button>
      </div>
-     <div class="kpis" id="factKpis"></div>
-     <div class="tablewrap"><table class="list" id="factTable" hidden>
-      <thead><tr><th>N°</th><th>Client</th><th class="hide-sm">Date</th><th class="hide-sm">Échéance</th><th>Statut</th><th class="num">Montant TTC</th></tr></thead>
-      <tbody id="factRows"></tbody>
-     </table></div>
-     <p id="factEmpty" class="empty">Aucune facture. Convertissez un devis enregistré pour créer une facture.</p>
-     <div class="pager" id="factPager"></div>
+     <div id="factListPane">
+      <div class="toolbar">
+       <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="factSearch" placeholder="Rechercher une facture, un client…" aria-label="Rechercher une facture"></div>
+       <select id="factFilter" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option value="emise">À payer</option><option value="retard">En retard</option><option value="payee">Payée</option></select>
+      </div>
+      <div class="kpis" id="factKpis"></div>
+      <div class="tablewrap"><table class="list" id="factTable" hidden>
+       <thead><tr><th>N°</th><th>Client</th><th class="hide-sm">Date</th><th class="hide-sm">Échéance</th><th>Statut</th><th class="num">Montant TTC</th></tr></thead>
+       <tbody id="factRows"></tbody>
+      </table></div>
+      <p id="factEmpty" class="empty">Aucune facture. Convertissez un devis enregistré pour créer une facture.</p>
+      <div class="pager" id="factPager"></div>
+     </div>
+
+     <!-- Chiffre d'affaires par période -->
+     <div id="caPane" hidden>
+      <div class="toolbar ca-controls">
+       <div><label for="caPreset">Période</label>
+        <select id="caPreset">
+         <option value="mois">Ce mois-ci</option><option value="trimestre">Ce trimestre</option><option value="annee">Cette année</option>
+         <option value="12mois">12 derniers mois</option><option value="trimestre-1">Trimestre précédent</option><option value="annee-1">Année précédente</option>
+         <option value="tout">Depuis le début</option><option value="perso">Dates personnalisées</option>
+        </select></div>
+       <div><label for="caFrom">Du</label><input id="caFrom" type="date"></div>
+       <div><label for="caTo">Au</label><input id="caTo" type="date"></div>
+       <div><label for="caGroup">Regrouper</label>
+        <select id="caGroup"><option value="mois">Par mois</option><option value="trimestre">Par trimestre</option><option value="annee">Par année</option></select></div>
+       <div><label for="caBase">Factures prises en compte</label>
+        <select id="caBase"><option value="emises">Toutes les factures émises</option><option value="payees">Factures payées uniquement</option></select></div>
+       <div><label for="caAmount">Montant</label>
+        <select id="caAmount"><option value="ht">HT</option><option value="ttc">TTC</option></select></div>
+       <div class="end"><button id="caExport"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Exporter</button></div>
+      </div>
+      <div class="kpis" id="caKpis"></div>
+      <div class="pad">
+       <div class="card chart">
+        <div class="card-head"><div><h2 id="caChartTitle">Chiffre d'affaires</h2><p id="caChartSub"></p></div></div>
+        <div id="caChart"></div>
+       </div>
+       <div class="card flush">
+        <div class="tablewrap"><table class="list static" id="caTable">
+         <thead><tr><th>Période</th><th class="num">Factures</th><th class="num">Montant HT</th><th class="num hide-sm">TVA</th><th class="num">Montant TTC</th><th class="num hide-sm">Part</th></tr></thead>
+         <tbody id="caRows"></tbody>
+         <tfoot id="caFoot"></tfoot>
+        </table></div>
+       </div>
+       <p class="hint">Le chiffre d'affaires est calculé à partir de la date de chaque facture. Les factures payées sont comptées à leur date de facture.</p>
+      </div>
+     </div>
     </div>
    </div>
 
@@ -1181,6 +1244,9 @@ function showRoute(){
   document.body.classList.remove('menu-open');
   closePanel();
   $('content').scrollTop = 0;
+  // Graphiques redessinés à la largeur de la page qui vient de s'afficher
+  if (user && r === 'tableau-de-bord') renderDashboard();
+  if (user && r === 'factures') renderCA();
 }
 function go(r){
   if (location.hash === '#/' + r) showRoute();
@@ -1282,22 +1348,27 @@ function sparkline(values, color = '#2f5bea'){
     <path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
-// Histogramme du chiffre d'affaires mensuel
-function barChart(months, values){
-  const w = 640, h = 220, top = 14, bottom = 26, left = 52, max = Math.max(...values, 1);
-  const nice = Math.pow(10, Math.floor(Math.log10(max))), ceil = Math.ceil(max / nice) * nice;
-  const bw = (w - left) / months.length;
-  let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Chiffre d'affaires facturé par mois">`;
-  for (let g = 0; g <= 3; g++){
-    const y = top + (h - top - bottom) * (1 - g / 3), v = ceil * g / 3;
+// Histogramme du chiffre d'affaires : une barre par période, la période en cours en bleu foncé
+// (dessiné à la largeur de son cadre pour que le texte garde sa taille)
+function barChart(labels, values, current = labels.length - 1, w = 640){
+  w = Math.max(280, Math.round(w));
+  const h = 220, top = 14, bottom = 26, left = 52, max = Math.max(...values, 1);
+  // Graduation ronde sur 4 intervalles (pas de 1, 1,5, 2, 2,5, 3, 4, 5, 6 ou 8 × une puissance de 10)
+  const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map(k => k * p).find(v => v >= raw), ceil = step * 4;
+  const bw = (w - left) / labels.length, every = Math.ceil(labels.length / Math.max(4, Math.floor(w / 60)));
+  const axis = v => v >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + ' k€' : Math.round(v) + ' €';
+  let s = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Chiffre d'affaires par période">`;
+  for (let g = 0; g <= 4; g++){
+    const y = top + (h - top - bottom) * (1 - g / 4);
     s += `<line x1="${left}" x2="${w}" y1="${y}" y2="${y}" stroke="#ececf0"/>`;
-    s += `<text x="${left - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#9ca3af">${v >= 1000 ? Math.round(v / 1000) + ' k€' : Math.round(v) + ' €'}</text>`;
+    s += `<text x="${left - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="#9ca3af">${axis(step * g)}</text>`;
   }
-  months.forEach((m, i) => {
-    const bh = (h - top - bottom) * values[i] / ceil, x = left + i * bw + bw * .22, y = h - bottom - bh;
-    const last = i === months.length - 1;
-    s += `<rect x="${x}" y="${y}" width="${bw * .56}" height="${Math.max(bh, values[i] ? 2 : 0)}" rx="3" fill="${last ? '#2f5bea' : '#c7d3fb'}"><title>${monthLabel(m)} : ${fmt(values[i])}</title></rect>`;
-    s += `<text x="${x + bw * .28}" y="${h - 8}" text-anchor="middle" font-size="11" fill="${last ? '#111827' : '#9ca3af'}">${monthLabel(m)}</text>`;
+  labels.forEach((m, i) => {
+    const bh = (h - top - bottom) * values[i] / ceil, bar = Math.min(bw * .56, 56), x = left + i * bw + (bw - bar) / 2, y = h - bottom - bh;
+    const on = i === current;
+    s += `<rect x="${x}" y="${y}" width="${bar}" height="${Math.max(bh, values[i] ? 2 : 0)}" rx="3" fill="${on ? '#2f5bea' : '#c7d3fb'}"><title>${m} : ${fmt(values[i])}</title></rect>`;
+    if (i % every === 0 || on) s += `<text x="${x + bar / 2}" y="${h - 8}" text-anchor="middle" font-size="11" fill="${on ? '#111827' : '#9ca3af'}">${m}</text>`;
   });
   return s + '</svg>';
 }
@@ -1333,6 +1404,7 @@ const refreshDevis = refreshLists, refreshFactures = refreshLists;
 function renderAll(){
   renderDevis();
   renderFactures();
+  renderCA();
   renderDashboard();
   $('navDevis').textContent = user && store.devis.length ? store.devis.length : '';
   $('navFact').textContent = user && store.factures.length ? store.factures.length : '';
@@ -1429,7 +1501,7 @@ function renderDashboard(){
   $('dashDate').textContent = d.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
   $('dashKpis').replaceChildren(...factureKpis(true));
   const months = lastMonths(12), values = byMonth(store.factures, 'date_facture', months);
-  $('dashChart').innerHTML = barChart(months, values);
+  $('dashChart').innerHTML = barChart(months.map(monthLabel), values, months.length - 1, $('dashChart').clientWidth || 640);
   $('dashYear').textContent = fmt(values.reduce((a, b) => a + b, 0)) + ' sur 12 mois';
 
   const billed = store.devis.filter(r => r.statut === 'facture').length, total = store.devis.length;
@@ -1471,6 +1543,157 @@ function renderDashboard(){
 
 $('devisSearch').oninput = $('devisFilter').onchange = () => { pages.devis = 0; renderDevis(); };
 $('factSearch').oninput = $('factFilter').onchange = () => { pages.factures = 0; renderFactures(); };
+
+// ---- Chiffre d'affaires par période ----
+
+const pad2 = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+const parseDay = s => new Date(s + 'T00:00:00');
+const quarterOf = d => Math.floor(d.getMonth() / 3);
+const MONTHS_PER = {mois: 1, trimestre: 3, annee: 12};
+const GROUP_LABELS = {mois: 'par mois', trimestre: 'par trimestre', annee: 'par année'};
+
+// Dates de début et de fin des périodes proposées
+function presetRange(p){
+  const t = new Date(), y = t.getFullYear(), m = t.getMonth(), q = quarterOf(t);
+  const r = (a, b) => [ymd(a), ymd(b)];
+  switch (p){
+    case 'mois': return r(new Date(y, m, 1), new Date(y, m + 1, 0));
+    case 'trimestre': return r(new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 0));
+    case 'trimestre-1': return r(new Date(y, q * 3 - 3, 1), new Date(y, q * 3, 0));
+    case 'annee': return r(new Date(y, 0, 1), new Date(y, 11, 31));
+    case 'annee-1': return r(new Date(y - 1, 0, 1), new Date(y - 1, 11, 31));
+    case '12mois': return r(new Date(y, m - 11, 1), new Date(y, m + 1, 0));
+    case 'tout': {
+      const first = store.factures.map(f => f.date_facture).sort()[0] || ymd(t);
+      return [first.slice(0, 8) + '01', ymd(new Date(y, m + 1, 0))];
+    }
+  }
+}
+
+// Découpe [from, to] en mois, trimestres ou années civils
+function caBuckets(from, to, group){
+  const step = MONTHS_PER[group], f = parseDay(from), out = [];
+  const multiYear = from.slice(0, 4) !== to.slice(0, 4);
+  let start = group === 'annee' ? new Date(f.getFullYear(), 0, 1)
+    : group === 'trimestre' ? new Date(f.getFullYear(), quarterOf(f) * 3, 1)
+    : new Date(f.getFullYear(), f.getMonth(), 1);
+  while (ymd(start) <= to && out.length < 600){
+    const end = new Date(start.getFullYear(), start.getMonth() + step, 0), y = start.getFullYear();
+    const month = start.toLocaleDateString('fr-FR', {month: 'short'}).replace('.', '');
+    out.push({
+      label: group === 'annee' ? String(y) : group === 'trimestre' ? 'T' + (quarterOf(start) + 1) + ' ' + y : month + ' ' + y,
+      short: group === 'annee' ? String(y) : (group === 'trimestre' ? 'T' + (quarterOf(start) + 1) : month) + (multiYear ? ' ' + String(y).slice(2) : ''),
+      start: ymd(start) < from ? from : ymd(start),
+      end: ymd(end) > to ? to : ymd(end)
+    });
+    start = new Date(y, start.getMonth() + step, 1);
+  }
+  return out;
+}
+
+// Période précédente de même durée (en mois entiers quand la période en est faite)
+function previousRange(from, to){
+  const f = parseDay(from), t = parseDay(to);
+  const t1 = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+  if (f.getDate() === 1 && t1.getDate() === 1){
+    const months = (t1.getFullYear() - f.getFullYear()) * 12 + t1.getMonth() - f.getMonth();
+    return [ymd(new Date(f.getFullYear(), f.getMonth() - months, 1)), ymd(new Date(f.getFullYear(), f.getMonth(), 0))];
+  }
+  const days = daysBetween(from, to) + 1;
+  return [ymd(new Date(f.getFullYear(), f.getMonth(), f.getDate() - days)), ymd(new Date(f.getFullYear(), f.getMonth(), f.getDate() - 1))];
+}
+
+function caInvoices(from, to){
+  const paidOnly = $('caBase').value === 'payees';
+  return store.factures.filter(f => f.date_facture >= from && f.date_facture <= to && (!paidOnly || f.statut === 'payee'));
+}
+
+function caData(){
+  const from = $('caFrom').value, to = $('caTo').value, group = $('caGroup').value;
+  const inv = caInvoices(from, to);
+  const buckets = caBuckets(from, to, group).map(b => {
+    const rows = inv.filter(f => f.date_facture >= b.start && f.date_facture <= b.end);
+    return Object.assign(b, {count: rows.length, ht: sum(rows, 'total_ht'), tva: sum(rows, 'total_tva'), ttc: sum(rows)});
+  });
+  return {from, to, group, inv, buckets, key: $('caAmount').value};
+}
+
+function renderCA(){
+  if ($('caPane').hidden) return;
+  const from = $('caFrom').value, to = $('caTo').value;
+  if (!from || !to || from > to){
+    $('caKpis').replaceChildren();
+    $('caChart').innerHTML = '<p class="empty">Choisissez une date de début antérieure à la date de fin.</p>';
+    $('caRows').replaceChildren(); $('caFoot').replaceChildren();
+    return;
+  }
+  const d = caData(), key = d.key, unit = key.toUpperCase();
+  const total = sum(d.buckets, key), tva = sum(d.buckets, 'tva'), count = d.inv.length;
+  const [pf, pt] = previousRange(from, to), prev = sum(caInvoices(pf, pt), key === 'ht' ? 'total_ht' : 'total_ttc');
+  const best = d.buckets.reduce((a, b) => b[key] > a[key] ? b : a, d.buckets[0]);
+  $('caKpis').replaceChildren(
+    kpi('Chiffre d\'affaires ' + unit, fmt(total), {delta: pctChange(total, prev), sub: ['Période précédente (' + frDate(pf) + ' – ' + frDate(pt) + ')', fmt(prev)]}),
+    kpi('Factures', String(count), {sub: ['Montant moyen ' + unit, fmt(count ? total / count : 0)]}),
+    kpi('TVA collectée', fmt(tva), {sub: ['Montant TTC', fmt(sum(d.buckets, 'ttc'))]}),
+    kpi('Meilleure période', best && best[key] ? best.label : '—', {sub: ['Chiffre d\'affaires ' + unit, fmt(best ? best[key] : 0)]}));
+
+  const now = today(), current = d.buckets.findIndex(b => b.start <= now && now <= b.end);
+  $('caChartTitle').textContent = 'Chiffre d\'affaires ' + unit + ' ' + GROUP_LABELS[d.group];
+  $('caChartSub').textContent = 'Du ' + frDate(from) + ' au ' + frDate(to) + ' · ' + ($('caBase').value === 'payees' ? 'factures payées' : 'toutes les factures émises');
+  $('caChart').innerHTML = barChart(d.buckets.map(b => b.short), d.buckets.map(b => b[key]), current, $('caChart').clientWidth || 640);
+
+  $('caRows').replaceChildren(...d.buckets.map(b => {
+    const share = el('span'), pct = total ? b[key] / total * 100 : 0;
+    share.style.width = pct + '%';
+    return el('tr', {},
+      el('td', {textContent: b.label}), el('td', {className: 'num', textContent: String(b.count)}),
+      el('td', {className: 'num', textContent: fmt(b.ht)}), el('td', {className: 'num hide-sm', textContent: fmt(b.tva)}),
+      el('td', {className: 'num', textContent: fmt(b.ttc)}),
+      el('td', {className: 'num hide-sm'}, el('span', {className: 'share'}, share), Math.round(pct) + ' %'));
+  }));
+  $('caFoot').replaceChildren(el('tr', {},
+    el('td', {textContent: 'Total'}), el('td', {className: 'num', textContent: String(count)}),
+    el('td', {className: 'num', textContent: fmt(sum(d.buckets, 'ht'))}), el('td', {className: 'num hide-sm', textContent: fmt(tva)}),
+    el('td', {className: 'num', textContent: fmt(sum(d.buckets, 'ttc'))}), el('td', {className: 'num hide-sm', textContent: total ? '100 %' : '—'})));
+}
+
+function exportCA(){
+  const d = caData();
+  downloadCSV('chiffre-affaires-' + d.from + '-' + d.to + '.csv', ['Période', 'Du', 'Au', 'Factures', 'Montant HT', 'TVA', 'Montant TTC'],
+    [...d.buckets.map(b => [b.label, frDate(b.start), frDate(b.end), b.count, csvNum(b.ht), csvNum(b.tva), csvNum(b.ttc)]),
+     ['Total', frDate(d.from), frDate(d.to), d.inv.length, csvNum(sum(d.buckets, 'ht')), csvNum(sum(d.buckets, 'tva')), csvNum(sum(d.buckets, 'ttc'))]]);
+}
+
+function applyPreset(){
+  if ($('caPreset').value === 'perso') return;
+  [$('caFrom').value, $('caTo').value] = presetRange($('caPreset').value);
+}
+function factTab(ca){
+  $('factListPane').hidden = ca;
+  $('caPane').hidden = !ca;
+  $('tabFactList').classList.toggle('active', !ca);
+  $('tabFactCa').classList.toggle('active', ca);
+  $('tabFactList').setAttribute('aria-selected', !ca);
+  $('tabFactCa').setAttribute('aria-selected', ca);
+  if (ca){ if ($('caPreset').value === 'tout') applyPreset(); renderCA(); }
+}
+// Les graphiques suivent la largeur de l'écran
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (user){ renderCA(); renderDashboard(); } }, 150);
+});
+$('tabFactList').onclick = () => factTab(false);
+$('tabFactCa').onclick = () => factTab(true);
+$('caPreset').onchange = () => { applyPreset(); renderCA(); };
+$('caFrom').onchange = $('caTo').onchange = () => { $('caPreset').value = 'perso'; renderCA(); };
+$('caGroup').onchange = $('caBase').onchange = $('caAmount').onchange = renderCA;
+$('caExport').onclick = exportCA;
+// Par défaut : l'année en cours, découpée par trimestre
+$('caPreset').value = 'annee';
+$('caGroup').value = 'trimestre';
+applyPreset();
 
 // ---- Panneau de détail ----
 
@@ -1583,7 +1806,8 @@ function downloadCSV(name, header, rows){
 }
 const csvNum = n => String(round2(Number(n))).replace('.', ',');
 $('exportBtn').onclick = () => {
-  if (currentRoute() === 'devis') downloadCSV('devis-' + today() + '.csv',
+  if (currentRoute() === 'factures' && !$('caPane').hidden) exportCA();
+  else if (currentRoute() === 'devis') downloadCSV('devis-' + today() + '.csv',
     ['N°', 'Client', 'Date', 'Valable jusqu\'au', 'Statut', 'Total HT', 'TVA', 'Total TTC'],
     filteredDevis().map(r => [r.numero, r.client.cNom, frDate(r.date_devis), frDate(r.valide_jusqu), DEVIS_LABELS[r.statut], csvNum(r.total_ht), csvNum(r.total_tva), csvNum(r.total_ttc)]));
   else downloadCSV('factures-' + today() + '.csv',
