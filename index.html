@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Générateur de devis</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#eef1f4;--card:#fff;--ink:#1b2430;--muted:#5d6b7c;--line:#d5dbe3;--accent:#1f4fd8;--accent-ink:#fff}
 *{box-sizing:border-box}
@@ -34,12 +35,56 @@ button.del{padding:9px 0;color:#b3261e}
  .line{grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);padding-bottom:10px}
  .line .desc{grid-column:1/-1}.head{display:none}
 }
+.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.92rem}
+.list th{text-align:left;font-weight:600;color:var(--muted);font-size:.8rem;padding:6px 8px;border-bottom:1px solid var(--line)}
+.list td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.list td.num{text-align:right;white-space:nowrap}
+.list td:first-child{white-space:nowrap}
+.list select{width:auto;padding:5px 6px}
+.list .btns{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.list button{padding:5px 10px;font-size:.88rem}
+.scroll{overflow-x:auto}
+.empty{color:var(--muted);margin:0}
+.msg{margin:0 0 16px;padding:10px 14px;border-radius:8px;background:#e5f3e8;color:#14532d}
+.msg.err{background:#fde8e7;color:#8c1d18}
+.msg:empty{display:none}
+.status{color:var(--muted);margin:0 0 12px}
+details summary{cursor:pointer;color:var(--accent);margin-top:12px}
+.hint{font-size:.85rem;color:var(--muted);margin:8px 0 0}
+button:disabled{opacity:.5;cursor:default}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
  <h1>Générateur de devis</h1>
  <p class="sub">Remplissez les champs, vérifiez le total, puis téléchargez le PDF.</p>
+ <p id="msg" class="msg" role="status"></p>
+
+ <section>
+  <h2>Base de données</h2>
+  <p id="dbStatus" class="status"></p>
+  <div id="dbLogin" hidden>
+   <div class="grid">
+    <div><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username"></div>
+    <div><label for="authPass">Mot de passe</label><input id="authPass" type="password" autocomplete="current-password"></div>
+   </div>
+   <div class="actions" style="margin-top:12px">
+    <button id="signup">Créer un compte</button>
+    <button id="login" class="primary">Se connecter</button>
+   </div>
+  </div>
+  <div id="dbUser" class="actions" hidden><button id="logout">Se déconnecter</button></div>
+  <details id="dbConfig">
+   <summary>Configuration Supabase</summary>
+   <div class="grid" style="margin-top:12px">
+    <div><label for="sbUrl">URL du projet</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"></div>
+    <div><label for="sbKey">Clé publique (anon / publishable)</label><input id="sbKey"></div>
+   </div>
+   <div class="actions" style="margin-top:12px"><button id="sbSave">Enregistrer la configuration</button></div>
+   <p class="hint">Les étapes pour créer la base gratuite sont décrites dans SUPABASE.md. N'utilisez jamais la clé secrète (service_role).</p>
+  </details>
+ </section>
 
  <section>
   <h2>Votre entreprise</h2>
@@ -95,14 +140,56 @@ button.del{padding:9px 0;color:#b3261e}
 
  <div class="actions">
   <button id="reset">Nouveau devis</button>
+  <button id="save" hidden>Enregistrer le devis</button>
   <button id="pdf" class="primary">Télécharger en PDF</button>
  </div>
+
+ <section id="devisSection" style="margin-top:24px" hidden>
+  <h2>Mes devis</h2>
+  <p id="devisEmpty" class="empty">Aucun devis enregistré.</p>
+  <div class="scroll"><table class="list" id="devisTable" hidden>
+   <thead><tr><th>N°</th><th>Client</th><th>Date</th><th style="text-align:right">Total TTC</th><th>Statut</th><th></th></tr></thead>
+   <tbody id="devisRows"></tbody>
+  </table></div>
+ </section>
+
+ <section id="factSection" hidden>
+  <h2>Mes factures</h2>
+  <p id="factEmpty" class="empty">Aucune facture. Convertissez un devis enregistré pour créer une facture.</p>
+  <div class="scroll"><table class="list" id="factTable" hidden>
+   <thead><tr><th>N°</th><th>Client</th><th>Date</th><th>Échéance</th><th style="text-align:right">Total TTC</th><th>Statut</th><th></th></tr></thead>
+   <tbody id="factRows"></tbody>
+  </table></div>
+ </section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
-const fmt = n => n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[\u202f\u00a0]/g,' ') + ' €';
+const fmt = n => Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[  ]/g,' ') + ' €';
+const round2 = n => Math.round(n * 100) / 100;
+const isoDate = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0,10);
+const frDate = s => s ? s.split('-').reverse().join('/') : '';
+const newId = () => crypto.randomUUID ? crypto.randomUUID() :
+  '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 const SAVED = ['notes'];
+const STATUTS = {brouillon:'Brouillon', envoye:'Envoyé', accepte:'Accepté', refuse:'Refusé'};
+const MENTIONS_FACTURE = 'Pénalités de retard : trois fois le taux d\'intérêt légal. Indemnité forfaitaire pour frais de recouvrement : 40 € (clients professionnels). Pas d\'escompte pour paiement anticipé.';
+
+// Base de données Supabase : null tant qu'elle n'est pas configurée ou que personne n'est connecté.
+let sb = null, user = null;
+// Devis affiché dans le formulaire, s'il est enregistré dans la base.
+let currentDevis = null;
+
+function toast(text, isError){
+  $('msg').textContent = text;
+  $('msg').className = isError ? 'msg err' : 'msg';
+}
+
+function el(tag, props = {}, ...children){
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...children);
+  return e;
+}
 
 function addLine(d='', q=1, p=0){
   const row = document.createElement('div');
@@ -131,86 +218,166 @@ function getLines(){
   }));
 }
 
-function calc(){
-  let ht = 0;
-  getLines().forEach(l => {
-    const t = l.q * l.p;
-    ht += t;
-    l.row.querySelector('.total').textContent = fmt(t);
-  });
-  const tva = ht * parseFloat($('tva').value) / 100;
-  $('ht').textContent = fmt(ht);
-  $('tvaAmt').textContent = fmt(tva);
-  $('ttc').textContent = fmt(ht + tva);
+function totals(lignes, tauxTva){
+  const ht = lignes.reduce((s, l) => s + l.q * l.p, 0);
+  const tva = ht * tauxTva / 100;
   return {ht, tva, ttc: ht + tva};
 }
 
-function nextNumber(){
-  const n = (parseInt(localStorage.getItem('devisCount')||'0',10) + 1);
-  return new Date().getFullYear() + '-' + String(n).padStart(3,'0');
+function calc(){
+  const lines = getLines();
+  lines.forEach(l => l.row.querySelector('.total').textContent = fmt(l.q * l.p));
+  const t = totals(lines, parseFloat($('tva').value));
+  $('ht').textContent = fmt(t.ht);
+  $('tvaAmt').textContent = fmt(t.tva);
+  $('ttc').textContent = fmt(t.ttc);
+  return t;
 }
 
-function newQuote(){
+async function nextNumber(){
+  const year = new Date().getFullYear();
+  let n = parseInt(localStorage.getItem('devisCount')||'0',10);
+  if (user){
+    // Numéro suivant le plus grand devis de l'année déjà enregistré
+    const {data} = await sb.from('devis').select('numero').like('numero', year + '-%');
+    n = Math.max(0, ...(data || []).map(r => parseInt(r.numero.slice(5), 10) || 0));
+  }
+  return year + '-' + String(n + 1).padStart(3,'0');
+}
+
+function setCurrentDevis(d){
+  currentDevis = d;
+  $('save').disabled = !!d && d.statut === 'facture';
+}
+
+async function newQuote(){
+  setCurrentDevis(null);
   $('lines').innerHTML = '';
   const today = new Date(), valid = new Date(Date.now() + 30*864e5);
-  $('dDate').value = today.toISOString().slice(0,10);
-  $('dValid').value = valid.toISOString().slice(0,10);
-  $('dNum').value = nextNumber();
+  $('dDate').value = isoDate(today);
+  $('dValid').value = isoDate(valid);
   addLine();
+  $('dNum').value = await nextNumber();
 }
 
 // Profils enregistrés (entreprises, clients) : une liste choisie via un menu,
 // dont les champs du formulaire modifient le profil sélectionné.
-function profileManager({key, fields, select, addBtn, delBtn, defaultName, legacy}){
-  let list = [], active = 0;
-  const empty = () => Object.fromEntries(fields.map(f => [f, '']));
-  const label = (p, i) => p[fields[0]].trim() || defaultName + ' ' + (i + 1);
-  const store = () => {
-    localStorage.setItem('devis_' + key, JSON.stringify(list));
-    localStorage.setItem('devis_' + key + 'Active', active);
-  };
-  const render = () => {
+// Sans connexion, la liste est gardée dans le navigateur ; une fois connecté, dans la table profils.
+function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy}){
+  let list = [], active = 0, remote = false;
+  const timers = {};
+  const empty = () => Object.assign({id: newId()}, Object.fromEntries(fields.map(f => [f, ''])));
+  const data = p => Object.fromEntries(fields.map(f => [f, p[f] || '']));
+  const label = (p, i) => (p[fields[0]] || '').trim() || defaultName + ' ' + (i + 1);
+  const storeActive = () => localStorage.setItem('devis_' + key + 'Active', active);
+  const storeLocal = () => localStorage.setItem('devis_' + key, JSON.stringify(list));
+
+  function loadLocal(){
+    let l;
+    try { l = JSON.parse(localStorage.getItem('devis_' + key)) || []; } catch(e){ l = []; }
+    if (!l.length && legacy){
+      // Reprend les valeurs enregistrées avant l'ajout des profils
+      const p = empty();
+      fields.forEach(f => p[f] = localStorage.getItem('devis_' + f) || '');
+      l = [p];
+    }
+    return l.map(p => Object.assign(empty(), p, p.id ? {} : {id: newId()}));
+  }
+
+  function save(p){
+    if (!remote){ storeLocal(); return; }
+    clearTimeout(timers[p.id]);
+    timers[p.id] = setTimeout(async () => {
+      const {error} = await sb.from('profils').upsert({id: p.id, type, donnees: data(p)});
+      if (error) toast('Profil non enregistré dans la base : ' + error.message, true);
+    }, 500);
+  }
+
+  async function remove(p){
+    if (!remote){ storeLocal(); return; }
+    clearTimeout(timers[p.id]);
+    const {error} = await sb.from('profils').delete().eq('id', p.id);
+    if (error) toast('Suppression impossible : ' + error.message, true);
+  }
+
+  function render(){
+    if (!list.length) list = [empty()];
+    active = Math.min(Math.max(active, 0), list.length - 1);
     $(select).innerHTML = '';
     list.forEach((p, i) => $(select).add(new Option(label(p, i), i)));
     $(select).value = active;
     $(delBtn).disabled = list.length < 2;
     fields.forEach(f => $(f).value = list[active][f] || '');
-  };
-
-  try { list = JSON.parse(localStorage.getItem('devis_' + key)) || []; } catch(e){ list = []; }
-  if (!list.length){
-    const p = empty();
-    // Reprend les valeurs enregistrées avant l'ajout des profils
-    if (legacy) fields.forEach(f => p[f] = localStorage.getItem('devis_' + f) || '');
-    list = [p];
+    storeActive();
   }
-  active = Math.min(parseInt(localStorage.getItem('devis_' + key + 'Active') || '0', 10) || 0, list.length - 1);
-  store();
-  render();
 
   fields.forEach(f => $(f).addEventListener('input', () => {
-    list[active][f] = $(f).value;
-    store();
-    if (f === fields[0]) $(select).options[active].text = label(list[active], active);
+    const p = list[active];
+    p[f] = $(f).value;
+    save(p);
+    if (f === fields[0]) $(select).options[active].text = label(p, active);
   }));
 
-  $(select).onchange = () => { active = parseInt($(select).value, 10); store(); render(); };
+  $(select).onchange = () => { active = parseInt($(select).value, 10); render(); };
 
   $(addBtn).onclick = () => {
-    list.push(empty());
+    const p = empty();
+    list.push(p);
     active = list.length - 1;
-    store();
+    if (!remote) storeLocal();
     render();
     $(fields[0]).focus();
   };
 
-  $(delBtn).onclick = () => {
+  $(delBtn).onclick = async () => {
     if (list.length < 2) return;
     if (!confirm('Supprimer « ' + label(list[active], active) + ' » ?')) return;
-    list.splice(active, 1);
+    const [p] = list.splice(active, 1);
     active = Math.max(0, active - 1);
-    store();
     render();
+    await remove(p);
+  };
+
+  active = parseInt(localStorage.getItem('devis_' + key + 'Active') || '0', 10) || 0;
+  list = loadLocal();
+  storeLocal();
+  render();
+
+  return {
+    // Bascule entre le stockage du navigateur et celui de la base.
+    async useRemote(on){
+      remote = false;
+      if (!on){ list = loadLocal(); render(); return; }
+      const {data: rows, error} = await sb.from('profils').select('id, donnees').eq('type', type).order('created_at');
+      if (error){ toast('Lecture des profils impossible : ' + error.message, true); list = loadLocal(); render(); return; }
+      list = rows.map(r => Object.assign(empty(), r.donnees, {id: r.id}));
+      if (!list.length){
+        // Premier usage du compte : envoie les profils remplis de ce navigateur
+        // (avec de nouveaux identifiants : ils ont pu être envoyés vers un autre compte)
+        const local = loadLocal().filter(p => fields.some(f => p[f].trim())).map(p => Object.assign(p, {id: newId()}));
+        if (local.length){
+          const {error} = await sb.from('profils').insert(local.map(p => ({id: p.id, type, donnees: data(p)})));
+          if (error) toast('Import des profils impossible : ' + error.message, true);
+          else list = local;
+        }
+      }
+      remote = true;
+      render();
+    },
+    current: () => data(list[active]),
+    // Sélectionne le profil du même nom, ou l'ajoute s'il n'existe pas.
+    choose(values){
+      const name = (values[fields[0]] || '').trim().toLowerCase();
+      let i = name ? list.findIndex(p => (p[fields[0]] || '').trim().toLowerCase() === name) : -1;
+      if (i < 0){
+        const p = Object.assign(empty(), data(values));
+        list.push(p);
+        i = list.length - 1;
+        save(p);
+      }
+      active = i;
+      render();
+    }
   };
 }
 
@@ -219,28 +386,42 @@ function loadSaved(){
 }
 SAVED.forEach(i => $(i).addEventListener('input', () => localStorage.setItem('devis_'+i, $(i).value)));
 
-const frDate = s => s ? s.split('-').reverse().join('/') : '';
+// Données du devis affiché dans le formulaire, au format de la table devis.
+function formQuote(){
+  const lignes = getLines().filter(l => l.d || l.p).map(({d, q, p}) => ({d, q, p}));
+  const tva = parseFloat($('tva').value);
+  const t = totals(lignes, tva);
+  return {
+    numero: $('dNum').value.trim(),
+    date_devis: $('dDate').value || isoDate(new Date()),
+    valide_jusqu: $('dValid').value || null,
+    entreprise: entreprises.current(),
+    client: clients.current(),
+    lignes, tva,
+    notes: $('notes').value,
+    total_ht: round2(t.ht), total_tva: round2(t.tva), total_ttc: round2(t.ttc)
+  };
+}
 
-function makePDF(){
+function makePDF(d){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
-  const L = 15, R = 195;
+  const L = 15, R = 195, e = d.entreprise, c = d.client;
   let y = 20;
 
-  doc.setFont('helvetica','bold').setFontSize(18).text($('eNom').value || 'Votre entreprise', L, y);
+  doc.setFont('helvetica','bold').setFontSize(18).text(e.eNom || 'Votre entreprise', L, y);
   doc.setFont('helvetica','normal').setFontSize(10);
-  const emitter = [$('eAdr').value, $('eSiret').value && 'SIRET : ' + $('eSiret').value, $('eEmail').value, $('eTel').value].filter(Boolean).join('\n');
+  const emitter = [e.eAdr, e.eSiret && 'SIRET : ' + e.eSiret, e.eEmail, e.eTel].filter(Boolean).join('\n');
   doc.text(doc.splitTextToSize(emitter, 90), L, y + 6);
 
-  doc.setFont('helvetica','bold').setFontSize(16).text('DEVIS ' + $('dNum').value, R, y, {align:'right'});
+  doc.setFont('helvetica','bold').setFontSize(16).text(d.titre + ' ' + d.numero, R, y, {align:'right'});
   doc.setFont('helvetica','normal').setFontSize(10);
-  doc.text('Date : ' + frDate($('dDate').value), R, y + 7, {align:'right'});
-  doc.text('Valable jusqu\'au : ' + frDate($('dValid').value), R, y + 12, {align:'right'});
+  d.infos.forEach((t, i) => doc.text(t, R, y + 7 + i * 5, {align:'right'}));
 
   y = 62;
   doc.setFont('helvetica','bold').text('Client', 120, y);
   doc.setFont('helvetica','normal');
-  const client = [$('cNom').value, $('cAdr').value, $('cEmail').value].filter(Boolean).join('\n');
+  const client = [c.cNom, c.cAdr, c.cEmail].filter(Boolean).join('\n');
   doc.text(doc.splitTextToSize(client, 75), 120, y + 5);
 
   y = 95;
@@ -253,7 +434,7 @@ function makePDF(){
   doc.setTextColor(0).setFont('helvetica','normal');
   y += 15;
 
-  getLines().filter(l => l.d || l.p).forEach(l => {
+  d.lignes.forEach(l => {
     const lines = doc.splitTextToSize(l.d, 95);
     if (y + lines.length * 5 > 265){ doc.addPage(); y = 20; }
     doc.text(lines, L + 2, y);
@@ -264,34 +445,268 @@ function makePDF(){
     doc.setDrawColor(213,219,227).line(L, y - 3, R, y - 3);
   });
 
-  const t = calc();
   if (y > 225){ doc.addPage(); y = 20; }
   y += 4;
-  doc.text('Total HT', 140, y); doc.text(fmt(t.ht), R - 2, y, {align:'right'});
-  doc.text('TVA (' + $('tva').value.replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(t.tva), R - 2, y + 6, {align:'right'});
+  doc.text('Total HT', 140, y); doc.text(fmt(d.total_ht), R - 2, y, {align:'right'});
+  doc.text('TVA (' + String(d.tva).replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(d.total_tva), R - 2, y + 6, {align:'right'});
   doc.setFont('helvetica','bold').setFontSize(12);
-  doc.text('Total TTC', 140, y + 14); doc.text(fmt(t.ttc), R - 2, y + 14, {align:'right'});
+  doc.text('Total TTC', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
 
   doc.setFont('helvetica','normal').setFontSize(9);
-  doc.text(doc.splitTextToSize($('notes').value, R - L), L, y + 28);
-  doc.text('Bon pour accord — date et signature :', L, y + 50);
+  const footer = [Number(d.tva) === 0 && 'TVA non applicable, art. 293 B du CGI.', d.notes, d.mentions].filter(Boolean).join('\n');
+  const footerLines = doc.splitTextToSize(footer, R - L);
+  doc.text(footerLines, L, y + 28);
+  if (d.signature) doc.text('Bon pour accord — date et signature :', L, y + 32 + footerLines.length * 4 + 10);
 
-  doc.save('devis-' + $('dNum').value + '.pdf');
-  const n = parseInt(localStorage.getItem('devisCount')||'0',10) + 1;
-  localStorage.setItem('devisCount', n);
+  doc.save(d.fichier + '.pdf');
 }
+
+function quotePDF(){
+  const q = formQuote();
+  makePDF(Object.assign(q, {
+    titre: 'DEVIS',
+    infos: ['Date : ' + frDate(q.date_devis), 'Valable jusqu\'au : ' + frDate(q.valide_jusqu)],
+    signature: true,
+    fichier: 'devis-' + q.numero
+  }));
+  if (!user) localStorage.setItem('devisCount', parseInt(localStorage.getItem('devisCount')||'0',10) + 1);
+}
+
+function invoicePDF(f){
+  makePDF(Object.assign({}, f, {
+    titre: 'FACTURE',
+    infos: ['Date : ' + frDate(f.date_facture), 'Échéance : ' + frDate(f.echeance), f.devis_numero ? 'Devis n° ' + f.devis_numero : ''].filter(Boolean),
+    mentions: MENTIONS_FACTURE,
+    fichier: 'facture-' + f.numero
+  }));
+}
+
+// ---- Base de données Supabase ----
+
+function isSecretKey(k){
+  if (k.startsWith('sb_secret_')) return true;
+  try { return JSON.parse(atob(k.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role === 'service_role'; }
+  catch(e){ return false; }
+}
+
+function renderDb(){
+  const url = localStorage.getItem('devis_sbUrl');
+  $('dbStatus').textContent =
+    !url ? 'Non configurée : vos entreprises et clients restent dans ce navigateur. Renseignez la configuration Supabase pour enregistrer devis et factures.'
+    : !sb ? 'La bibliothèque Supabase n\'a pas pu être chargée. Vérifiez la connexion internet et la configuration.'
+    : user ? 'Connecté : ' + user.email + '. Devis, factures, entreprises et clients sont enregistrés dans la base.'
+    : 'Connectez-vous pour enregistrer vos devis et factures.';
+  $('dbLogin').hidden = !sb || !!user;
+  $('dbUser').hidden = !user;
+  $('save').hidden = $('devisSection').hidden = $('factSection').hidden = !user;
+  $('dbConfig').open = !sb;
+}
+
+// Exécute un appel à la base et affiche l'erreur éventuelle ; renvoie data (true si vide), ou null en cas d'erreur.
+async function db(request, what){
+  try {
+    const {data, error} = await request;
+    if (error) throw error;
+    return data ?? true;
+  } catch(e){
+    toast(what + ' : ' + (e.message || e), true);
+    return null;
+  }
+}
+
+async function onSession(session){
+  const u = session ? session.user : null;
+  if ((u && u.id) === (user && user.id)) return;
+  user = u;
+  renderDb();
+  await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user)]);
+  if (user){
+    refreshLists();
+    if (!currentDevis) $('dNum').value = await nextNumber();
+  } else {
+    setCurrentDevis(null);
+  }
+}
+
+function initSupabase(){
+  const url = localStorage.getItem('devis_sbUrl'), key = localStorage.getItem('devis_sbKey');
+  $('sbUrl').value = url || '';
+  $('sbKey').value = key || '';
+  if (url && key && window.supabase){
+    try { sb = window.supabase.createClient(url, key); }
+    catch(e){ toast('Configuration Supabase invalide : ' + e.message, true); }
+  }
+  renderDb();
+  // Les appels à la base se font hors du callback, comme le recommande Supabase.
+  if (sb) sb.auth.onAuthStateChange((event, session) => setTimeout(() => onSession(session), 0));
+}
+
+$('sbSave').onclick = () => {
+  const url = $('sbUrl').value.trim().replace(/\/+$/, ''), key = $('sbKey').value.trim();
+  if (isSecretKey(key)){
+    toast('Cette clé est la clé secrète (service_role) : elle donne accès à toutes les données. Utilisez la clé publique (anon / publishable).', true);
+    return;
+  }
+  if (url && !/^https:\/\//.test(url)){ toast('L\'URL du projet doit commencer par https://', true); return; }
+  localStorage.setItem('devis_sbUrl', url);
+  localStorage.setItem('devis_sbKey', key);
+  location.reload();
+};
+
+function credentials(){
+  const email = $('authEmail').value.trim(), password = $('authPass').value;
+  if (!email || !password){ toast('Indiquez un email et un mot de passe.', true); return null; }
+  return {email, password};
+}
+
+$('login').onclick = async () => {
+  const c = credentials();
+  if (c && await db(sb.auth.signInWithPassword(c), 'Connexion impossible')){
+    $('authPass').value = '';
+    toast('Connecté.');
+  }
+};
+
+$('signup').onclick = async () => {
+  const c = credentials();
+  if (!c) return;
+  const data = await db(sb.auth.signUp(c), 'Création du compte impossible');
+  if (data && !data.session) toast('Compte créé. Confirmez votre adresse avec le lien reçu par email, puis connectez-vous.');
+  else if (data) toast('Compte créé, vous êtes connecté.');
+};
+
+$('logout').onclick = async () => {
+  await db(sb.auth.signOut(), 'Déconnexion impossible');
+  toast('Déconnecté. Vos entreprises et clients de ce navigateur sont de nouveau affichés.');
+};
+
+async function saveQuote(){
+  if (currentDevis && currentDevis.statut === 'facture'){
+    toast('Ce devis a été facturé : il ne peut plus être modifié. Cliquez sur « Nouveau devis » pour en créer un autre.', true);
+    return false;
+  }
+  const q = formQuote();
+  if (!q.numero){ toast('Indiquez un numéro de devis.', true); return false; }
+  let rows;
+  try {
+    const req = currentDevis
+      ? sb.from('devis').update(Object.assign(q, {updated_at: new Date().toISOString()})).eq('id', currentDevis.id)
+      : sb.from('devis').insert(q);
+    const {data, error} = await req.select('id, statut');
+    if (error) throw error;
+    rows = data;
+  } catch(e){
+    toast(e.code === '23505' ? 'Le devis n° ' + q.numero + ' existe déjà. Changez le numéro ou ouvrez ce devis depuis la liste.' : 'Enregistrement impossible : ' + (e.message || e), true);
+    return false;
+  }
+  if (!rows.length){ toast('Ce devis n\'existe plus ou a été facturé : il ne peut plus être modifié.', true); return false; }
+  setCurrentDevis(rows[0]);
+  toast('Devis ' + q.numero + ' enregistré.');
+  refreshDevis();
+  return true;
+}
+
+async function openQuote(id){
+  const d = await db(sb.from('devis').select('*').eq('id', id).single(), 'Ouverture impossible');
+  if (!d) return;
+  entreprises.choose(d.entreprise);
+  clients.choose(d.client);
+  $('dNum').value = d.numero;
+  $('dDate').value = d.date_devis || '';
+  $('dValid').value = d.valide_jusqu || '';
+  $('tva').value = String(Number(d.tva));
+  $('notes').value = d.notes;
+  $('lines').innerHTML = '';
+  d.lignes.forEach(l => addLine(l.d, l.q, l.p));
+  if (!d.lignes.length) addLine();
+  calc();
+  setCurrentDevis(d);
+  toast(d.statut === 'facture'
+    ? 'Devis ' + d.numero + ' ouvert. Il a été facturé : vous pouvez le télécharger, mais plus le modifier.'
+    : 'Devis ' + d.numero + ' ouvert.');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+async function convertQuote(row){
+  if (!confirm('Créer la facture du devis ' + row.numero + ' ?\nUne facture émise ne peut plus être modifiée ni supprimée.')) return;
+  // Enregistre d'abord les modifications en cours si ce devis est ouvert
+  if (currentDevis && currentDevis.id === row.id && !await saveQuote()) return;
+  const today = new Date();
+  const f = await db(sb.rpc('convertir_devis_en_facture', {
+    p_devis_id: row.id, p_date: isoDate(today), p_echeance: isoDate(new Date(today.getTime() + 30*864e5))
+  }), 'Conversion impossible');
+  if (!f) return;
+  if (currentDevis && currentDevis.id === row.id) setCurrentDevis({id: row.id, statut: 'facture'});
+  toast('Facture ' + f.numero + ' créée à partir du devis ' + row.numero + '.');
+  refreshLists();
+}
+
+async function deleteQuote(row){
+  if (!confirm('Supprimer le devis ' + row.numero + ' ?')) return;
+  const data = await db(sb.from('devis').delete().eq('id', row.id).select('id'), 'Suppression impossible');
+  if (!data) return;
+  if (currentDevis && currentDevis.id === row.id) setCurrentDevis(null);
+  toast('Devis ' + row.numero + ' supprimé.');
+  refreshDevis();
+}
+
+function statusSelect(options, value, onChange){
+  const s = el('select');
+  Object.entries(options).forEach(([v, t]) => s.add(new Option(t, v)));
+  s.value = value;
+  s.onchange = () => onChange(s.value);
+  return s;
+}
+
+async function refreshDevis(){
+  const rows = await db(sb.from('devis').select('id, numero, date_devis, statut, client, total_ttc').order('created_at', {ascending: false}), 'Lecture des devis impossible');
+  if (!rows) return;
+  $('devisEmpty').hidden = rows.length > 0;
+  $('devisTable').hidden = !rows.length;
+  $('devisRows').replaceChildren(...rows.map(r => {
+    const statut = r.statut === 'facture' ? 'Facturé' : statusSelect(STATUTS, r.statut, async v => {
+      if (await db(sb.from('devis').update({statut: v}).eq('id', r.id), 'Changement de statut impossible')) r.statut = v;
+    });
+    const btns = el('div', {className: 'btns'}, el('button', {textContent: 'Ouvrir', onclick: () => openQuote(r.id)}));
+    if (r.statut !== 'facture') btns.append(
+      el('button', {textContent: 'Convertir en facture', onclick: () => convertQuote(r)}),
+      el('button', {textContent: 'Supprimer', className: 'del', onclick: () => deleteQuote(r)}));
+    return el('tr', {},
+      el('td', {textContent: r.numero}), el('td', {textContent: (r.client && r.client.cNom) || ''}),
+      el('td', {textContent: frDate(r.date_devis)}), el('td', {className: 'num', textContent: fmt(r.total_ttc)}),
+      el('td', {}, statut), el('td', {}, btns));
+  }));
+}
+
+async function refreshFactures(){
+  const rows = await db(sb.from('factures').select('*').order('numero', {ascending: false}), 'Lecture des factures impossible');
+  if (!rows) return;
+  $('factEmpty').hidden = rows.length > 0;
+  $('factTable').hidden = !rows.length;
+  $('factRows').replaceChildren(...rows.map(f => el('tr', {},
+    el('td', {textContent: f.numero}), el('td', {textContent: f.client.cNom || ''}),
+    el('td', {textContent: frDate(f.date_facture)}), el('td', {textContent: frDate(f.echeance)}),
+    el('td', {className: 'num', textContent: fmt(f.total_ttc)}),
+    el('td', {}, statusSelect({emise: 'À payer', payee: 'Payée'}, f.statut,
+      v => db(sb.from('factures').update({statut: v}).eq('id', f.id), 'Changement de statut impossible'))),
+    el('td', {}, el('div', {className: 'btns'}, el('button', {textContent: 'PDF', onclick: () => invoicePDF(f)}))))));
+}
+
+function refreshLists(){ return Promise.all([refreshDevis(), refreshFactures()]); }
 
 $('add').onclick = () => addLine();
 $('tva').onchange = calc;
-$('pdf').onclick = makePDF;
-$('reset').onclick = newQuote;
+$('pdf').onclick = quotePDF;
+$('save').onclick = saveQuote;
+$('reset').onclick = () => { newQuote(); toast(''); };
 
-profileManager({key:'profiles', fields:['eNom','eSiret','eEmail','eTel','eAdr'], select:'profile',
-  addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true});
-profileManager({key:'clients', fields:['cNom','cEmail','cAdr'], select:'client',
-  addBtn:'addClient', delBtn:'delClient', defaultName:'Client'});
+const entreprises = profileManager({key:'profiles', type:'entreprise', fields:['eNom','eSiret','eEmail','eTel','eAdr'],
+  select:'profile', addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true});
+const clients = profileManager({key:'clients', type:'client', fields:['cNom','cEmail','cAdr'],
+  select:'client', addBtn:'addClient', delBtn:'delClient', defaultName:'Client'});
 loadSaved();
 newQuote();
+initSupabase();
 </script>
 </body>
 </html>
