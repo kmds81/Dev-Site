@@ -206,7 +206,24 @@ details>:last-child{margin-bottom:14px}
 .editor .side{position:sticky;top:20px}
 .emitter{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
 .emitter>div{flex:1 1 240px}
-.line{display:grid;grid-template-columns:1fr 70px 110px 100px 32px;gap:8px;align-items:center;margin-bottom:8px}
+.line{display:grid;grid-template-columns:1fr 70px 110px 100px 32px 32px;gap:8px;align-items:center;margin-bottom:8px}
+.line button.lib{width:32px;padding:0;border-color:transparent;box-shadow:none;background:transparent;color:var(--faint)}
+.line button.lib:hover{color:var(--accent);background:var(--accent-soft)}
+.line button.lib.saved{color:var(--accent)}
+.line button.lib.saved svg{fill:currentColor}
+body.franchise .seg-wrap,body.franchise .tax-row,body.franchise .totals div:has(#tvaAmt){display:none}
+label.check{display:flex;align-items:flex-start;gap:10px;color:var(--ink);font-size:.86rem;font-weight:400;cursor:pointer;margin:0}
+label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;accent-color:var(--accent)}
+.franchise-box{padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.franchise-box .hint{margin-left:26px}
+.seg-wrap{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--muted)}
+.seg{display:inline-flex;padding:3px;background:var(--gray-soft);border-radius:7px}
+.seg button{height:26px;padding:0 12px;border:0;box-shadow:none;background:transparent;color:var(--muted);font-size:.8rem;border-radius:5px}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,.1)}
+.ttc-hint{margin:-6px 0 12px}
+.popover{position:absolute;z-index:70;width:280px;background:#fff;border:1px solid var(--line-2);border-radius:10px;box-shadow:0 16px 40px -12px rgba(17,24,39,.3);padding:14px}
+.popover p{margin:0 0 10px;font-size:.84rem;font-weight:500}
+.popover .actions{margin-top:10px}
 .line.head{font-size:.7rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
 .line .total{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
 .line button.del{width:32px;padding:0;border-color:transparent;box-shadow:none;background:transparent}
@@ -219,6 +236,33 @@ details>:last-child{margin-bottom:14px}
 .totals .ttc span:last-child{font-size:1.35rem;font-weight:600;letter-spacing:-.02em}
 .stack{display:grid;gap:8px;margin-top:16px}
 .stack button{width:100%;height:36px}
+
+/* Bibliothèque de prestations */
+.line-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.lib-search{width:100%;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:28px;padding:0 10px;border-radius:999px;font-size:.8rem;box-shadow:none;gap:6px}
+.chip span{font-size:.7rem;color:var(--muted);background:var(--gray-soft);border-radius:8px;padding:0 5px;line-height:1.5}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.on span{background:rgba(255,255,255,.2);color:#fff}
+#libList{padding-top:6px;padding-bottom:6px}
+.libitem{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.libitem:last-of-type{border-bottom:0}
+.libitem label{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;margin:0;color:var(--ink);font-size:.86rem;font-weight:400;cursor:pointer;padding:4px 0}
+.libitem input[type=checkbox]{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;accent-color:var(--accent)}
+.libitem .txt{min-width:0}
+.libitem small{display:block;color:var(--muted);font-size:.74rem}
+.libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.libitem .tools{display:flex;opacity:.55}
+.libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
+.libitem .tools button{width:28px;height:28px}
+.libedit{flex:1;display:grid;gap:6px;padding:4px 0}
+.libedit-row{display:grid;grid-template-columns:1fr 90px auto auto;gap:6px}
+.lib-empty{padding:10px 0}
+.lib-examples{color:var(--accent);margin-top:6px;padding:0 4px;white-space:normal;height:auto;min-height:32px;text-align:left}
+/* Dans l'éditeur, le panneau passe par-dessus pour laisser toute la largeur aux lignes */
+body[data-route="editeur"] .panel{position:fixed;right:0;top:0;bottom:0;z-index:45;width:min(420px,100vw);box-shadow:-10px 0 30px rgba(17,24,39,.15)}
+.libfoot{position:sticky;bottom:0;display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);z-index:1}
 
 /* Tableau de bord */
 .dash-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}
@@ -289,7 +333,7 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
 @media(max-width:560px){
  .kpis{grid-template-columns:minmax(0,1fr)}
  .kpi{border-left:0;padding-left:0}
- .line{grid-template-columns:1fr 1fr 32px;padding:10px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px}
+ .line{grid-template-columns:1fr 1fr 32px 32px;padding:10px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px}
  .line .desc{grid-column:1/-1}
  .line .total{grid-column:1/3;text-align:left;color:var(--muted)}
  .line.head{display:none}
@@ -675,13 +719,22 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
         <div><label for="tva">Taux de TVA</label>
          <select id="tva"><option value="20">20 %</option><option value="10">10 %</option><option value="5.5">5,5 %</option><option value="0">0 % (non applicable)</option></select></div>
        </div>
+       <p class="hint" id="franchiseNote" hidden>Franchise en base de TVA : pas de TVA sur ce devis. La mention « TVA non applicable, art. 293 B du CGI » figure sur le devis et la facture. <a href="#/entreprise">Modifier</a></p>
       </div>
 
       <div class="card" id="secLignes">
-       <div class="card-head"><div><h2>Prestations</h2><p>Une ligne par prestation ou fourniture.</p></div></div>
-       <div class="line head"><span>Description</span><span>Qté</span><span>Prix unitaire HT</span><span style="text-align:right">Total HT</span><span></span></div>
+       <div class="card-head"><div><h2>Prestations</h2><p>Une ligne par prestation ou fourniture.</p></div>
+        <div class="seg-wrap"><span id="segLabel">Prix saisis en</span><div class="seg" role="group" aria-labelledby="segLabel">
+         <button id="priceHT" aria-pressed="true">HT</button><button id="priceTTC" aria-pressed="false">TTC</button></div></div></div>
+       <p class="hint ttc-hint" id="ttcHint" hidden>Saisissez les prix TTC : le prix HT est calculé selon le taux de TVA. Le devis et la facture restent présentés en HT, avec la TVA et le total TTC.</p>
+       <div class="line head"><span>Description</span><span>Qté</span><span id="puHead">Prix unitaire HT</span><span id="totHead" style="text-align:right">Total HT</span><span></span><span></span></div>
        <div id="lines"></div>
-       <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
+       <div class="line-actions">
+        <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
+        <button id="libBtn"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg>Bibliothèque de prestations</button>
+       </div>
+       <datalist id="prestaSuggest"></datalist>
+       <datalist id="metierSuggest"></datalist>
       </div>
 
       <div class="card" id="secConditions">
@@ -695,9 +748,9 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
       <div class="card">
        <div class="card-head"><h2>Récapitulatif</h2><span class="badge" id="editorStatus" hidden></span></div>
        <div class="totals">
-        <div><span>Total HT</span><span id="ht">0,00 €</span></div>
+        <div class="tax-row"><span>Total HT</span><span id="ht">0,00 €</span></div>
         <div><span>TVA</span><span id="tvaAmt">0,00 €</span></div>
-        <div class="ttc"><span>Total TTC</span><span id="ttc">0,00 €</span></div>
+        <div class="ttc"><span id="ttcLabel">Total TTC</span><span id="ttc">0,00 €</span></div>
        </div>
        <div class="stack">
         <button id="invoicePdf" class="primary" hidden>Télécharger la facture (PDF)</button>
@@ -826,6 +879,10 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
         <div><label for="eTvaIntra">N° de TVA intracommunautaire</label><input id="eTvaIntra" placeholder="Ex. FR12 123456789"></div>
         <div><label for="eDelai">Délai de paiement des factures (jours)</label><input id="eDelai" type="number" min="0" step="1"></div>
        </div>
+       <div class="field franchise-box">
+        <label class="check"><input type="checkbox" id="eFranchise"> <span><strong>Franchise en base de TVA</strong> (micro-entrepreneur, auto-entrepreneur)</span></label>
+        <p class="hint">Les devis et factures de cette entreprise sont faits sans TVA : pas de HT ni de TTC, un seul total, et la mention « TVA non applicable, art. 293 B du CGI ». À décocher si vous dépassez les seuils de la franchise ou si vous choisissez de facturer la TVA.</p>
+       </div>
        <datalist id="formes"><option value="EI"><option value="EI (micro-entrepreneur)"><option value="EURL"><option value="SARL"><option value="SASU"><option value="SAS"></datalist>
        <div class="field"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
         <textarea id="eAssurance" rows="2"></textarea></div>
@@ -863,7 +920,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
 <p id="msg" class="msg" role="status" aria-live="polite"></p>
 
 <div class="mobilebar">
- <div><small>Total TTC</small><strong id="ttcBar">0,00 €</strong></div>
+ <div><small id="ttcBarLabel">Total TTC</small><strong id="ttcBar">0,00 €</strong></div>
  <button id="pdfBar" class="primary">Télécharger le PDF</button>
 </div>
 
@@ -909,17 +966,88 @@ function addLine(d='', q=1, p=0){
   const row = document.createElement('div');
   row.className = 'line';
   row.innerHTML = `
-   <div class="desc"><input class="d" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
+   <div class="desc"><input class="d" list="prestaSuggest" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
    <div><input class="q" type="number" min="0" step="any" aria-label="Quantité"></div>
-   <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire HT"></div>
+   <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire"></div>
    <div class="total">0,00 €</div>
+   <button class="lib" title="Enregistrer dans la bibliothèque" aria-label="Enregistrer dans la bibliothèque"><svg class="i" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg></button>
    <button class="del" title="Supprimer la ligne" aria-label="Supprimer la ligne">✕</button>`;
   row.querySelector('.d').value = d;
   row.querySelector('.q').value = q;
-  row.querySelector('.p').value = p;
+  setLinePrice(row, p);
   row.querySelector('.del').onclick = () => removeLine(row);
+  row.querySelector('.lib').onclick = e => saveLineToLibrary(row, e.currentTarget);
+  // Le prix saisi (HT ou TTC selon le mode) est converti et gardé en HT
+  row.querySelector('.p').addEventListener('input', () => {
+    const v = parseFloat(row.querySelector('.p').value) || 0;
+    row.dataset.ht = priceMode() === 'ttc' ? v / (1 + tvaRate()) : v;
+  });
+  row.querySelector('.d').addEventListener('input', () => markSaved(row));
+  // Description choisie dans les suggestions : reprend le prix habituel si aucun n'est saisi
+  row.querySelector('.d').addEventListener('change', () => {
+    const price = knownPrice(row.querySelector('.d').value);
+    if (price != null && !(parseFloat(row.dataset.ht) > 0)){ setLinePrice(row, price); calc(); }
+  });
   row.addEventListener('input', calc);
   $('lines').appendChild(row);
+  markSaved(row);
+  calc();
+}
+
+// ---- Prix saisis en HT ou en TTC ----
+// Chaque ligne garde son prix unitaire HT (data-ht) ; le champ affiche le HT ou le TTC.
+const isFranchise = () => document.body.classList.contains('franchise');
+const priceMode = () => !isFranchise() && document.body.dataset.prices === 'ttc' ? 'ttc' : 'ht';
+const tvaRate = () => (parseFloat($('tva').value) || 0) / 100;
+function showLinePrice(row){
+  const ht = parseFloat(row.dataset.ht) || 0;
+  const v = priceMode() === 'ttc' ? round2(ht * (1 + tvaRate())) : Math.round(ht * 1e4) / 1e4;
+  row.querySelector('.p').value = v || 0;
+}
+function setLinePrice(row, ht){
+  row.dataset.ht = Number(ht) || 0;
+  showLinePrice(row);
+}
+function setPriceMode(mode, save = true){
+  document.body.dataset.prices = mode;
+  $('priceHT').setAttribute('aria-pressed', mode === 'ht');
+  $('priceTTC').setAttribute('aria-pressed', mode === 'ttc');
+  priceLabels();
+  document.querySelectorAll('#lines .line').forEach(showLinePrice);
+  if (save) try { localStorage.setItem('devis_priceMode', mode); } catch(e){}
+  calc();
+}
+// Libellés des colonnes et du total : HT / TTC, ou sans mention en franchise de TVA
+function priceLabels(){
+  const unit = isFranchise() ? '' : ' ' + priceMode().toUpperCase();
+  $('puHead').textContent = 'Prix unitaire' + unit;
+  $('totHead').textContent = 'Total' + unit;
+  $('ttcLabel').textContent = $('ttcBarLabel').textContent = isFranchise() ? 'Total' : 'Total TTC';
+  $('ttcHint').hidden = priceMode() !== 'ttc';
+  document.querySelectorAll('#lines .p').forEach(i => i.setAttribute('aria-label', 'Prix unitaire' + unit));
+}
+
+// Franchise en base de TVA (micro-entrepreneur) : TVA à 0 %, un seul total, sans HT ni TTC
+function applyFranchise(){
+  const on = $('eFranchise').checked, was = isFranchise();
+  document.body.classList.toggle('franchise', on);
+  if (on && $('tva').value !== '0') $('tva').value = '0';
+  // Retour à une entreprise qui facture la TVA : taux habituel
+  if (!on && was && $('tva').value === '0') $('tva').value = '20';
+  $('tva').disabled = on;
+  $('franchiseNote').hidden = !on;
+  document.querySelectorAll('#lines .line').forEach(showLinePrice);
+  priceLabels();
+  calc();
+}
+
+$('priceHT').onclick = () => setPriceMode('ht');
+$('priceTTC').onclick = () => setPriceMode('ttc');
+// Changement de TVA : en TTC, les prix TTC saisis restent les mêmes et le HT est recalculé
+function onTvaChange(){
+  if (priceMode() === 'ttc') document.querySelectorAll('#lines .line').forEach(row => {
+    row.dataset.ht = (parseFloat(row.querySelector('.p').value) || 0) / (1 + tvaRate());
+  });
   calc();
 }
 
@@ -934,7 +1062,7 @@ function getLines(){
   return [...document.querySelectorAll('#lines .line')].map(r => ({
     d: r.querySelector('.d').value.trim(),
     q: parseFloat(r.querySelector('.q').value) || 0,
-    p: parseFloat(r.querySelector('.p').value) || 0,
+    p: Math.round((parseFloat(r.dataset.ht) || 0) * 1e6) / 1e6,
     row: r
   }));
 }
@@ -947,7 +1075,8 @@ function totals(lignes, tauxTva){
 
 function calc(){
   const lines = getLines();
-  lines.forEach(l => l.row.querySelector('.total').textContent = fmt(l.q * l.p));
+  const k = priceMode() === 'ttc' ? 1 + tvaRate() : 1;
+  lines.forEach(l => l.row.querySelector('.total').textContent = fmt(l.q * l.p * k));
   const t = totals(lines, parseFloat($('tva').value));
   animateValue($('ht'), t.ht);
   animateValue($('tvaAmt'), t.tva);
@@ -992,7 +1121,11 @@ async function newQuote(){
 // Profils enregistrés (entreprises, clients) : une liste choisie via un menu,
 // dont les champs du formulaire modifient le profil sélectionné.
 // Sans connexion, la liste est gardée dans le navigateur ; une fois connecté, dans la table profils.
-function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy, defaults = {}}){
+// Valeur d'un champ de profil : texte, ou « 1 » / « » pour une case à cocher
+const fieldGet = f => $(f).type === 'checkbox' ? ($(f).checked ? '1' : '') : $(f).value;
+const fieldSet = (f, v) => { if ($(f).type === 'checkbox') $(f).checked = v === '1'; else $(f).value = v; };
+
+function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy, defaults = {}, onChange = () => {}}){
   let list = [], active = 0, remote = false;
   const timers = {};
   const empty = () => Object.assign({id: newId()}, Object.fromEntries(fields.map(f => [f, defaults[f] ?? ''])));
@@ -1036,15 +1169,17 @@ function profileManager({key, type, fields, select, addBtn, delBtn, defaultName,
     list.forEach((p, i) => $(select).add(new Option(label(p, i), i)));
     $(select).value = active;
     $(delBtn).disabled = list.length < 2;
-    fields.forEach(f => $(f).value = list[active][f] || '');
+    fields.forEach(f => fieldSet(f, list[active][f] || ''));
     storeActive();
+    onChange();
   }
 
   fields.forEach(f => $(f).addEventListener('input', () => {
     const p = list[active];
-    p[f] = $(f).value;
+    p[f] = fieldGet(f);
     save(p);
     if (f === fields[0]) $(select).options[active].text = label(p, active);
+    onChange();
   }));
 
   $(select).onchange = () => { active = parseInt($(select).value, 10); render(); };
@@ -1164,8 +1299,9 @@ function makePDF(d){
   doc.setTextColor(255).setFont('helvetica','bold');
   doc.text('Description', L + 2, y + 5.5);
   doc.text('Qté', 120, y + 5.5, {align:'right'});
-  doc.text('PU HT', 150, y + 5.5, {align:'right'});
-  doc.text('Total HT', R - 2, y + 5.5, {align:'right'});
+  const franchise = e.eFranchise === '1';
+  doc.text(franchise ? 'Prix unitaire' : 'PU HT', 150, y + 5.5, {align:'right'});
+  doc.text(franchise ? 'Total' : 'Total HT', R - 2, y + 5.5, {align:'right'});
   doc.setTextColor(0).setFont('helvetica','normal');
   y += 15;
 
@@ -1182,10 +1318,15 @@ function makePDF(d){
 
   if (y > 225){ doc.addPage(); y = 20; }
   y += 4;
-  doc.text('Total HT', 140, y); doc.text(fmt(d.total_ht), R - 2, y, {align:'right'});
-  doc.text('TVA (' + String(d.tva).replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(d.total_tva), R - 2, y + 6, {align:'right'});
-  doc.setFont('helvetica','bold').setFontSize(12);
-  doc.text('Total TTC', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
+  if (franchise){
+    doc.setFont('helvetica','bold').setFontSize(12);
+    doc.text('Total', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
+  } else {
+    doc.text('Total HT', 140, y); doc.text(fmt(d.total_ht), R - 2, y, {align:'right'});
+    doc.text('TVA (' + String(d.tva).replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(d.total_tva), R - 2, y + 6, {align:'right'});
+    doc.setFont('helvetica','bold').setFontSize(12);
+    doc.text('Total TTC', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
+  }
 
   doc.setFont('helvetica','normal').setFontSize(9);
   const footer = [d.conditions, d.mentions, Number(d.tva) === 0 && 'TVA non applicable, art. 293 B du CGI.',
@@ -1302,7 +1443,7 @@ async function onSession(session){
   if (user && LANDING[shown] && !resettingPassword){ go(wantedRoute || 'tableau-de-bord'); wantedRoute = null; }
   // Déconnecté depuis une page de l'application : retour à l'accueil
   if (!user && !LANDING[shown] && shown !== 'editeur') go('accueil');
-  await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user)]);
+  await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user), loadLibrary()]);
   if (user){
     refreshLists();
     if (!currentDevis) $('dNum').value = await nextNumber();
@@ -1702,7 +1843,9 @@ function renderAll(){
   $('navDevis').textContent = user && store.devis.length ? store.devis.length : '';
   $('navFact').textContent = user && store.factures.length ? store.factures.length : '';
   // Met à jour le panneau ouvert avec les données fraîches
-  if (panelState){
+  refreshSuggest();
+  if (panelState && panelState.type === 'biblio') renderLibList();
+  else if (panelState){
     const list = panelState.type === 'devis' ? store.devis : store.factures;
     const row = list.find(r => r.id === panelState.id);
     if (row) (panelState.type === 'devis' ? showDevis : showFacture)(row.id);
@@ -2060,7 +2203,7 @@ function showDevis(id){
   const billedLink = facture ? el('a', {href: '#', textContent: facture.numero, onclick: e => { e.preventDefault(); showFacture(facture.id); }}) : null;
   openPanel({type: 'devis', id: r.id}, 'Devis ' + r.numero,
     block(null, el('div', {className: 'pcust'}, avatar(r.client.cNom), r.client.cNom || 'Client sans nom'),
-      kv('Montant TTC', fmt(r.total_ttc)), kv('Montant HT', fmt(r.total_ht)),
+      ...(r.entreprise.eFranchise === '1' ? [kv('Montant', fmt(r.total_ttc))] : [kv('Montant TTC', fmt(r.total_ttc)), kv('Montant HT', fmt(r.total_ht))]),
       kv('Date', frDate(r.date_devis)), kv('Valable jusqu\'au', frDate(r.valide_jusqu) || '—'),
       kv('Statut', statut), ...(billedLink ? [kv('Facture', billedLink)] : []), actions),
     block('Prestations', ...lineList(r.lignes)),
@@ -2114,7 +2257,7 @@ function showFacture(id){
 
   openPanel({type: 'factures', id: f.id}, 'Facture ' + f.numero,
     block(null, el('div', {className: 'pcust'}, avatar(f.client.cNom), f.client.cNom || 'Client sans nom'),
-      kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht)),
+      ...(f.entreprise.eFranchise === '1' ? [kv('Montant', fmt(f.total_ttc))] : [kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht))]),
       kv('Date', frDate(f.date_facture)), kv('Échéance', frDate(f.echeance)),
       kv('Statut', badge(state, FACT_LABELS)), kv('Devis d\'origine', devisLink),
       kv(paid ? 'Payée le' : 'Date de paiement', payDate),
@@ -2123,6 +2266,332 @@ function showFacture(id){
     block('Prestations', ...lineList(f.lignes)),
     block('Historique', history));
 }
+
+// ---- Bibliothèque de prestations, classées par corps de métier ----
+
+const METIERS = ['Peinture', 'Plâtrerie', 'Maçonnerie', 'Démolition', 'Carrelage', 'Plomberie', 'Électricité', 'Menuiserie', 'Nettoyage', 'Autre'];
+// Exemples proposés pour démarrer (sans prix : chacun met les siens)
+const EXEMPLES = {
+  'Peinture': ['Protection des sols et du mobilier', 'Ponçage et dépoussiérage des enduits', 'Rebouchage et enduit de lissage',
+    'Application d\'une couche d\'impression', 'Application de deux couches de peinture murs (finition mate)',
+    'Application de deux couches de peinture plafonds', 'Peinture des boiseries (portes, plinthes) en deux couches'],
+  'Plâtrerie': ['Montage de cloison en plaques de plâtre', 'Doublage isolant des murs', 'Faux plafond en plaques de plâtre', 'Bandes et enduit des joints'],
+  'Maçonnerie': ['Démolition de la cuisine existante', 'Piochage du carrelage existant', 'Évacuation des gravats en déchetterie',
+    'Ouverture de mur avec pose d\'un linteau', 'Montage de cloison en carreaux de plâtre', 'Ragréage du sol'],
+  'Démolition': ['Dépose des équipements sanitaires', 'Démolition de cloison', 'Dépose du revêtement de sol', 'Évacuation des gravats en déchetterie'],
+  'Carrelage': ['Pose de carrelage au sol', 'Pose de faïence murale', 'Pose de plinthes carrelées', 'Joints et nettoyage de fin de chantier'],
+  'Plomberie': ['Fourniture et pose d\'un WC suspendu', 'Fourniture et pose d\'un meuble vasque', 'Remplacement du chauffe-eau', 'Création d\'une arrivée et d\'une évacuation d\'eau'],
+  'Électricité': ['Mise en conformité du tableau électrique', 'Fourniture et pose de prises de courant', 'Fourniture et pose de points lumineux', 'Création d\'un circuit spécialisé'],
+  'Menuiserie': ['Fourniture et pose de porte intérieure', 'Fourniture et pose de plinthes bois', 'Pose de parquet flottant'],
+  'Nettoyage': ['Nettoyage de fin de chantier']
+};
+
+let library = [];                          // [{id, metier, d, p}]
+const lib = {tab: null, selected: new Set()};
+const libKey = s => (s || '').trim().toLowerCase();
+
+function storeLocalLibrary(){
+  try { localStorage.setItem('devis_prestations', JSON.stringify(library)); } catch(e){}
+}
+function localLibrary(){
+  try { return JSON.parse(localStorage.getItem('devis_prestations')) || []; } catch(e){ return []; }
+}
+
+// Charge la bibliothèque : en ligne une fois connecté, sinon dans ce navigateur
+async function loadLibrary(){
+  if (!user){ library = localLibrary(); refreshSuggest(); return; }
+  const rows = await db(sb.from('profils').select('id, donnees').eq('type', 'prestation').order('created_at'), 'Lecture de la bibliothèque impossible');
+  if (!rows) return;
+  library = rows.map(r => Object.assign({metier: 'Autre', d: '', p: 0}, r.donnees, {id: r.id}));
+  // Premier usage du compte : envoie la bibliothèque de ce navigateur
+  const local = localLibrary();
+  if (!library.length && local.length) await addToLibrary(local.map(i => Object.assign({}, i, {id: newId()})), true);
+  refreshSuggest();
+}
+
+// Message clair si la base n'accepte pas encore les prestations (schéma pas relancé)
+function libraryError(error){
+  if (/profils_type_check|check constraint/i.test(error.message || '') || error.code === '23514')
+    toast('Pour enregistrer la bibliothèque en ligne, relancez supabase/schema.sql dans Supabase.', true);
+  else toast('Bibliothèque non enregistrée : ' + errorText(error), true);
+}
+
+async function addToLibrary(items, quiet){
+  if (!items.length) return true;
+  if (user){
+    const {error} = await sb.from('profils').insert(items.map(i => ({id: i.id, type: 'prestation', donnees: {metier: i.metier, d: i.d, p: i.p}})));
+    if (error){ libraryError(error); return false; }
+  }
+  library.push(...items);
+  if (!user) storeLocalLibrary();
+  refreshSuggest();
+  if (!quiet) toast(items.length === 1 ? 'Prestation enregistrée dans la bibliothèque.' : plural(items.length, 'prestation') + ' enregistrées dans la bibliothèque.');
+  return true;
+}
+async function updateLibraryItem(item, change){
+  const next = Object.assign({}, item, change);
+  if (user){
+    const {error} = await sb.from('profils').update({donnees: {metier: next.metier, d: next.d, p: next.p}}).eq('id', item.id);
+    if (error){ libraryError(error); return false; }
+  }
+  Object.assign(item, change);
+  if (!user) storeLocalLibrary();
+  refreshSuggest();
+  return true;
+}
+async function removeFromLibrary(item){
+  if (user){
+    const {error} = await sb.from('profils').delete().eq('id', item.id);
+    if (error){ libraryError(error); return; }
+  }
+  library = library.filter(i => i !== item);
+  lib.selected.delete('l:' + item.id);
+  if (!user) storeLocalLibrary();
+  refreshSuggest();
+  renderLibList();
+}
+
+// Historique : prestations des devis enregistrés, des plus utilisées aux moins utilisées (dernier prix)
+function frequentLines(){
+  const m = new Map();
+  [...store.devis].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')).forEach(r => (r.lignes || []).forEach(l => {
+    const k = libKey(l.d);
+    if (!k) return;
+    const e = m.get(k) || {d: l.d.trim(), p: 0, n: 0};
+    e.n++; e.p = Number(l.p) || e.p; e.d = l.d.trim();
+    m.set(k, e);
+  }));
+  return [...m.values()].sort((a, b) => b.n - a.n || a.d.localeCompare(b.d)).slice(0, 50);
+}
+
+// Prix habituel d'une description (bibliothèque d'abord, puis historique)
+function knownPrice(d){
+  const k = libKey(d);
+  if (!k) return null;
+  const item = library.find(i => libKey(i.d) === k);
+  if (item) return Number(item.p) || null;
+  const f = frequentLines().find(i => libKey(i.d) === k);
+  return f ? f.p || null : null;
+}
+
+// Suggestions proposées pendant la saisie d'une description
+function refreshSuggest(){
+  const seen = new Set(), opts = [];
+  [...library, ...frequentLines()].forEach(i => {
+    const k = libKey(i.d);
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    opts.push(el('option', {value: i.d, label: (i.metier ? i.metier + ' · ' : '') + (Number(i.p) ? fmt(i.p) + ' HT' : 'prix à définir')}));
+  });
+  $('prestaSuggest').replaceChildren(...opts);
+  $('metierSuggest').replaceChildren(...libraryMetiers().map(m => el('option', {value: m})));
+  document.querySelectorAll('#lines .line').forEach(markSaved);
+}
+
+// Métiers à afficher : ceux qui ont des prestations, puis la liste habituelle
+function libraryMetiers(){
+  const used = [...new Set(library.map(i => i.metier || 'Autre'))];
+  return [...used.filter(m => !METIERS.includes(m)).sort(), ...METIERS];
+}
+
+function openLibrary(){
+  if (!lib.tab) lib.tab = frequentLines().length && !library.length ? 'frequentes' : (library[0] && library[0].metier) || 'Peinture';
+  lib.selected.clear();
+  const metierList = el('datalist', {id: 'metierList'}, ...libraryMetiers().map(m => el('option', {value: m})));
+  const metier = el('input', {id: 'libMetier', placeholder: 'Ex. Peinture', value: lib.tab === 'frequentes' ? '' : lib.tab});
+  metier.setAttribute('list', 'metierList');
+  const desc = el('input', {id: 'libDesc', placeholder: 'Ex. Ponçage des enduits'});
+  const price = el('input', {id: 'libPrice', type: 'number', min: '0', step: '0.01', placeholder: '0,00'});
+  const metierOf = () => metier.value.trim() || 'Autre';
+  const lines = () => getLines().filter(l => l.d);
+
+  openPanel({type: 'biblio', id: 'biblio'}, 'Bibliothèque de prestations',
+    block(null,
+      el('div', {className: 'search lib-search'}, svgIcon('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+        el('input', {id: 'libSearch', type: 'search', placeholder: 'Rechercher une prestation…', ariaLabel: 'Rechercher une prestation', oninput: renderLibList})),
+      el('div', {className: 'chips', id: 'libChips', role: 'tablist'})),
+    el('div', {className: 'pblock', id: 'libList'}),
+    el('div', {className: 'libfoot'},
+      el('button', {id: 'libAll', onclick: toggleAllLibrary}, 'Tout sélectionner'),
+      el('button', {id: 'libAdd', className: 'primary', onclick: addSelectedToQuote})),
+    block('Ajouter à la bibliothèque', metierList,
+      el('div', {className: 'field'}, el('label', {htmlFor: 'libMetier', textContent: 'Corps de métier'}), metier),
+      el('div', {className: 'field'}, el('label', {htmlFor: 'libDesc', textContent: 'Prestation'}), desc),
+      el('div', {className: 'field'}, el('label', {htmlFor: 'libPrice', textContent: 'Prix unitaire HT habituel'}), price),
+      el('div', {className: 'pactions'},
+        el('button', {className: 'primary', textContent: 'Enregistrer la prestation', onclick: async () => {
+          if (!desc.value.trim()){ toast('Indiquez la prestation.', true); desc.focus(); return; }
+          if (await addToLibrary([{id: newId(), metier: metierOf(), d: desc.value.trim(), p: parseFloat(price.value) || 0}])){
+            lib.tab = metierOf(); desc.value = ''; price.value = ''; renderLibList();
+          }
+        }}),
+        el('button', {id: 'libSaveLines', textContent: 'Enregistrer les lignes de ce devis', onclick: async () => {
+          const known = new Set(library.map(i => libKey(i.d)));
+          const items = lines().filter(l => !known.has(libKey(l.d))).map(l => ({id: newId(), metier: metierOf(), d: l.d, p: l.p}));
+          if (!items.length){ toast('Les lignes de ce devis sont déjà toutes dans la bibliothèque.'); return; }
+          if (await addToLibrary(items)){ lib.tab = metierOf(); renderLibList(); }
+        }})),
+      el('p', {className: 'hint', textContent: 'Les lignes du devis sont classées dans le corps de métier indiqué ci-dessus.'})));
+  renderLibList();
+  $('libSearch').focus();
+}
+
+function visibleLibraryItems(){
+  const q = libKey($('libSearch') ? $('libSearch').value : '');
+  if (q) return [
+    ...library.filter(i => libKey(i.d).includes(q) || libKey(i.metier).includes(q)).map(i => ({key: 'l:' + i.id, d: i.d, p: i.p, item: i, sub: i.metier})),
+    ...frequentLines().filter(f => libKey(f.d).includes(q) && !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({key: 'f:' + libKey(f.d), d: f.d, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}))];
+  if (lib.tab === 'frequentes') return frequentLines().map(f => ({key: 'f:' + libKey(f.d), d: f.d, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}));
+  return library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, p: i.p, item: i}));
+}
+
+function renderLibList(){
+  if (!$('libList')) return;
+  const q = $('libSearch').value.trim();
+  // Onglets : prestations fréquentes, puis un onglet par corps de métier
+  const count = m => library.filter(i => (i.metier || 'Autre') === m).length;
+  const chip = (id, label, n) => {
+    const c = el('button', {className: 'chip' + (!q && lib.tab === id ? ' on' : ''), role: 'tab', onclick: () => { lib.tab = id; $('libSearch').value = ''; if (id !== 'frequentes') $('libMetier').value = id; renderLibList(); }}, label);
+    if (n) c.append(el('span', {textContent: String(n)}));
+    return c;
+  };
+  $('libChips').replaceChildren(chip('frequentes', 'Fréquentes', frequentLines().length), ...libraryMetiers().map(m => chip(m, m, count(m))));
+
+  const items = visibleLibraryItems(), list = $('libList');
+  list.replaceChildren();
+  items.forEach(it => {
+    const box = el('input', {type: 'checkbox', checked: lib.selected.has(it.key), onchange: () => { box.checked ? lib.selected.add(it.key) : lib.selected.delete(it.key); updateLibFoot(); }});
+    box.setAttribute('aria-label', it.d);
+    const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, it.sub ? el('small', {textContent: it.sub}) : '')),
+      el('span', {className: 'price', textContent: Number(it.p) ? fmt(it.p) : '—'}));
+    if (it.item){
+      row.append(el('span', {className: 'tools'},
+        el('button', {className: 'ghost icon', title: 'Modifier', ariaLabel: 'Modifier', onclick: () => editLibraryItem(row, it.item)}, svgIcon(ICONS.edit)),
+        el('button', {className: 'ghost icon del', title: 'Retirer de la bibliothèque', ariaLabel: 'Retirer de la bibliothèque', onclick: () => {
+          if (confirm('Retirer « ' + it.item.d + ' » de la bibliothèque ?')) removeFromLibrary(it.item);
+        }}, svgIcon('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'))));
+    } else if (it.freq){
+      row.append(el('span', {className: 'tools'},
+        el('button', {className: 'ghost icon', title: 'Enregistrer dans la bibliothèque', ariaLabel: 'Enregistrer dans la bibliothèque', onclick: async () => {
+          if (await addToLibrary([{id: newId(), metier: $('libMetier').value.trim() || 'Autre', d: it.d, p: it.p}])) renderLibList();
+        }}, svgIcon('<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9Z"/>'))));
+    }
+    list.append(row);
+  });
+
+  if (!items.length){
+    list.append(el('p', {className: 'hint lib-empty', textContent: q ? 'Aucune prestation ne correspond à la recherche.'
+      : lib.tab === 'frequentes' ? (user ? 'Les prestations de vos devis enregistrés apparaîtront ici, des plus utilisées aux moins utilisées.' : 'Connectez-vous et enregistrez vos devis : leurs prestations apparaîtront ici.')
+      : 'Aucune prestation en ' + lib.tab + ' pour l\'instant. Ajoutez les vôtres ci-dessous.'}));
+  }
+  // Exemples à charger pour le corps de métier affiché
+  const missing = !q && EXEMPLES[lib.tab] ? EXEMPLES[lib.tab].filter(d => !library.some(i => libKey(i.d) === libKey(d))) : [];
+  if (missing.length) list.append(el('button', {className: 'ghost lib-examples', onclick: async () => {
+    if (await addToLibrary(missing.map(d => ({id: newId(), metier: lib.tab, d, p: 0})))) renderLibList();
+  }}, '+ Ajouter ' + plural(missing.length, 'exemple') + ' de prestations en ' + lib.tab));
+  updateLibFoot();
+}
+
+function editLibraryItem(row, item){
+  const d = el('input', {value: item.d, ariaLabel: 'Prestation'});
+  const p = el('input', {type: 'number', min: '0', step: '0.01', value: item.p || '', ariaLabel: 'Prix unitaire HT'});
+  const m = el('input', {value: item.metier || '', ariaLabel: 'Corps de métier'});
+  m.setAttribute('list', 'metierList');
+  row.replaceChildren(el('div', {className: 'libedit'}, d, el('div', {className: 'libedit-row'}, m, p,
+    el('button', {className: 'primary', textContent: 'OK', onclick: async () => {
+      if (!d.value.trim()) return;
+      if (await updateLibraryItem(item, {d: d.value.trim(), p: parseFloat(p.value) || 0, metier: m.value.trim() || 'Autre'})){ lib.tab = item.metier; renderLibList(); }
+    }}),
+    el('button', {className: 'ghost', textContent: 'Annuler', onclick: renderLibList}))));
+  d.focus();
+}
+
+function updateLibFoot(){
+  const visible = visibleLibraryItems();
+  const n = [...lib.selected].length;
+  $('libAdd').textContent = n ? 'Ajouter au devis (' + n + ')' : 'Ajouter au devis';
+  $('libAdd').disabled = !n;
+  $('libAll').hidden = !visible.length;
+  $('libAll').textContent = visible.length && visible.every(it => lib.selected.has(it.key)) ? 'Tout désélectionner' : 'Tout sélectionner';
+}
+function toggleAllLibrary(){
+  const visible = visibleLibraryItems(), all = visible.every(it => lib.selected.has(it.key));
+  visible.forEach(it => all ? lib.selected.delete(it.key) : lib.selected.add(it.key));
+  renderLibList();
+}
+
+// Ajoute les prestations cochées au devis, dans l'ordre de la bibliothèque
+function addSelectedToQuote(){
+  const chosen = [];
+  const push = (k, d, p) => { if (lib.selected.has(k)) chosen.push({d, p: Number(p) || 0}); };
+  library.forEach(i => push('l:' + i.id, i.d, i.p));
+  frequentLines().forEach(f => push('f:' + libKey(f.d), f.d, f.p));
+  if (!chosen.length) return;
+  // Remplace la ligne vide d'un nouveau devis plutôt que de la laisser
+  getLines().filter(l => !l.d && !l.p).forEach(l => l.row.remove());
+  chosen.forEach(c => addLine(c.d, 1, c.p));
+  calc();
+  closePanel();
+  toast(plural(chosen.length, 'prestation') + ' ajoutée' + (chosen.length > 1 ? 's' : '') + ' au devis. Indiquez les quantités.');
+  const first = $('lines').lastElementChild && [...$('lines').children].at(-chosen.length);
+  if (first) first.querySelector('.q').focus();
+}
+
+$('libBtn').onclick = openLibrary;
+
+// Signet plein quand la description de la ligne est déjà dans la bibliothèque
+function markSaved(row){
+  const k = libKey(row.querySelector('.d').value), item = k && library.find(i => libKey(i.d) === k);
+  const b = row.querySelector('.lib');
+  b.classList.toggle('saved', !!item);
+  b.title = item ? 'Dans la bibliothèque (' + (item.metier || 'Autre') + ')' : 'Enregistrer dans la bibliothèque';
+  b.setAttribute('aria-label', b.title);
+}
+
+// Enregistre une ligne du devis dans la bibliothèque, dans le corps de métier choisi
+let popover = null, popoverOpened = 0;
+function closePopover(){ if (popover){ popover.remove(); popover = null; } }
+function saveLineToLibrary(row, button){
+  closePopover();
+  const d = row.querySelector('.d').value.trim();
+  if (!d){ toast('Écrivez d\'abord la prestation, puis enregistrez-la.', true); row.querySelector('.d').focus(); return; }
+  const known = library.find(i => libKey(i.d) === libKey(d));
+  if (known){ toast('« ' + d + ' » est déjà dans la bibliothèque (' + (known.metier || 'Autre') + ').'); return; }
+  let last = 'Autre';
+  try { last = localStorage.getItem('devis_lastMetier') || (lib.tab && lib.tab !== 'frequentes' ? lib.tab : 'Autre'); } catch(e){}
+  const metier = el('input', {id: 'popMetier', value: last});
+  metier.setAttribute('list', 'metierSuggest');
+  metier.setAttribute('aria-label', 'Corps de métier');
+  const save = async () => {
+    const m = metier.value.trim() || 'Autre';
+    const ht = parseFloat(row.dataset.ht) || 0;
+    if (await addToLibrary([{id: newId(), metier: m, d, p: Math.round(ht * 1e4) / 1e4}], true)){
+      try { localStorage.setItem('devis_lastMetier', m); } catch(e){}
+      toast('« ' + d + ' » enregistrée dans la bibliothèque (' + m + (ht ? ', ' + fmt(ht) + ' HT' : '') + ').');
+      closePopover();
+    }
+  };
+  metier.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') closePopover(); });
+  popover = el('div', {className: 'popover', role: 'dialog'},
+    el('p', {textContent: 'Enregistrer dans la bibliothèque'}),
+    el('label', {htmlFor: 'popMetier', textContent: 'Corps de métier'}), metier,
+    el('div', {className: 'actions'},
+      el('button', {className: 'ghost', textContent: 'Annuler', onclick: closePopover}),
+      el('button', {className: 'primary', id: 'popSave', textContent: 'Enregistrer', onclick: save})));
+  popover.setAttribute('aria-label', 'Enregistrer dans la bibliothèque');
+  document.body.appendChild(popover);
+  popoverOpened = Date.now();
+  const r = button.getBoundingClientRect();
+  // Au-dessus du bouton si la place manque en dessous (barre du bas sur téléphone)
+  const below = r.bottom + popover.offsetHeight + 90 < window.innerHeight;
+  popover.style.top = (below ? r.bottom + 6 : r.top - popover.offsetHeight - 6) + window.scrollY + 'px';
+  popover.style.left = Math.max(8, Math.min(r.right - popover.offsetWidth, window.innerWidth - popover.offsetWidth - 8)) + 'px';
+  metier.focus();
+  metier.select();
+}
+document.addEventListener('pointerdown', e => { if (popover && !popover.contains(e.target) && !e.target.closest('.lib')) closePopover(); });
+// Fermée si la page défile (elle ne suivrait plus sa ligne), sauf juste après l'ouverture
+$('content').addEventListener('scroll', () => { if (Date.now() - popoverOpened > 400) closePopover(); });
 
 // ---- Export CSV (pour Excel, séparateur « ; ») ----
 
@@ -2166,7 +2635,7 @@ function animateValue(node, to, format = fmt){
 }
 
 $('add').onclick = () => addLine();
-$('tva').onchange = calc;
+$('tva').onchange = onTvaChange;
 $('pdf').onclick = quotePDF;
 $('pdfBar').onclick = () => ($('invoicePdf').hidden ? $('pdf') : $('invoicePdf')).click();
 $('invoicePdf').onclick = async () => {
@@ -2178,14 +2647,20 @@ $('save').onclick = saveQuote;
 $('reset').onclick = () => { newQuote(); toast(''); };
 
 const entreprises = profileManager({key:'profiles', type:'entreprise',
-  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture'],
+  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture','eFranchise'],
+  onChange: applyFranchise,
   select:'profile', addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true,
   defaults: {eDelai: '30', eCondFacture: 'Paiement par virement à la date d\'échéance indiquée.'}});
 const clients = profileManager({key:'clients', type:'client', fields:['cNom','cEmail','cAdr','cSiren'],
   select:'client', addBtn:'addClient', delBtn:'delClient', defaultName:'Client'});
 loadSaved();
+// Dernier mode de saisie des prix choisi (HT par défaut)
+let savedMode = 'ht';
+try { savedMode = localStorage.getItem('devis_priceMode') === 'ttc' ? 'ttc' : 'ht'; } catch(e){}
+setPriceMode(savedMode, false);
 newQuote();
 initSupabase();
+loadLibrary();
 showRoute();
 </script>
 </body>
