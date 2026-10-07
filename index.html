@@ -59,6 +59,11 @@ button.del{padding:9px 0;color:#b3261e}
 
  <section>
   <h2>Client et devis</h2>
+  <div class="profiles">
+   <div><label for="client">Client enregistré</label><select id="client"></select></div>
+   <button id="addClient">Ajouter un client</button>
+   <button id="delClient" class="del" style="padding:9px 14px">Supprimer</button>
+  </div>
   <div class="grid">
    <div><label for="cNom">Nom du client</label><input id="cNom"></div>
    <div><label for="cEmail">Email du client</label><input id="cEmail" type="email"></div>
@@ -98,7 +103,6 @@ button.del{padding:9px 0;color:#b3261e}
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[\u202f\u00a0]/g,' ') + ' €';
 const SAVED = ['notes'];
-const PROFILE_FIELDS = ['eNom','eSiret','eEmail','eTel','eAdr'];
 
 function addLine(d='', q=1, p=0){
   const row = document.createElement('div');
@@ -148,7 +152,6 @@ function nextNumber(){
 
 function newQuote(){
   $('lines').innerHTML = '';
-  ['cNom','cEmail','cAdr'].forEach(i => $(i).value = '');
   const today = new Date(), valid = new Date(Date.now() + 30*864e5);
   $('dDate').value = today.toISOString().slice(0,10);
   $('dValid').value = valid.toISOString().slice(0,10);
@@ -156,63 +159,60 @@ function newQuote(){
   addLine();
 }
 
-// Profils d'entreprise : chaque profil garde nom, SIRET, email, téléphone et adresse.
-let profiles = [], activeProfile = 0;
+// Profils enregistrés (entreprises, clients) : une liste choisie via un menu,
+// dont les champs du formulaire modifient le profil sélectionné.
+function profileManager({key, fields, select, addBtn, delBtn, defaultName, legacy}){
+  let list = [], active = 0;
+  const empty = () => Object.fromEntries(fields.map(f => [f, '']));
+  const label = (p, i) => p[fields[0]].trim() || defaultName + ' ' + (i + 1);
+  const store = () => {
+    localStorage.setItem('devis_' + key, JSON.stringify(list));
+    localStorage.setItem('devis_' + key + 'Active', active);
+  };
+  const render = () => {
+    $(select).innerHTML = '';
+    list.forEach((p, i) => $(select).add(new Option(label(p, i), i)));
+    $(select).value = active;
+    $(delBtn).disabled = list.length < 2;
+    fields.forEach(f => $(f).value = list[active][f] || '');
+  };
 
-function storeProfiles(){
-  localStorage.setItem('devis_profiles', JSON.stringify(profiles));
-  localStorage.setItem('devis_profileActive', activeProfile);
-}
-
-function profileLabel(p, i){ return p.eNom.trim() || 'Entreprise ' + (i + 1); }
-
-function renderProfiles(){
-  $('profile').innerHTML = '';
-  profiles.forEach((p, i) => $('profile').add(new Option(profileLabel(p, i), i)));
-  $('profile').value = activeProfile;
-  $('delProfile').disabled = profiles.length < 2;
-  PROFILE_FIELDS.forEach(f => $(f).value = profiles[activeProfile][f] || '');
-}
-
-function emptyProfile(){ return Object.fromEntries(PROFILE_FIELDS.map(f => [f, ''])); }
-
-function loadProfiles(){
-  try { profiles = JSON.parse(localStorage.getItem('devis_profiles')) || []; } catch(e){ profiles = []; }
-  if (!profiles.length){
-    // Reprend les coordonnées enregistrées avant l'ajout des profils
-    const p = emptyProfile();
-    PROFILE_FIELDS.forEach(f => p[f] = localStorage.getItem('devis_'+f) || '');
-    profiles = [p];
+  try { list = JSON.parse(localStorage.getItem('devis_' + key)) || []; } catch(e){ list = []; }
+  if (!list.length){
+    const p = empty();
+    // Reprend les valeurs enregistrées avant l'ajout des profils
+    if (legacy) fields.forEach(f => p[f] = localStorage.getItem('devis_' + f) || '');
+    list = [p];
   }
-  activeProfile = Math.min(parseInt(localStorage.getItem('devis_profileActive')||'0',10) || 0, profiles.length - 1);
-  storeProfiles();
-  renderProfiles();
+  active = Math.min(parseInt(localStorage.getItem('devis_' + key + 'Active') || '0', 10) || 0, list.length - 1);
+  store();
+  render();
+
+  fields.forEach(f => $(f).addEventListener('input', () => {
+    list[active][f] = $(f).value;
+    store();
+    if (f === fields[0]) $(select).options[active].text = label(list[active], active);
+  }));
+
+  $(select).onchange = () => { active = parseInt($(select).value, 10); store(); render(); };
+
+  $(addBtn).onclick = () => {
+    list.push(empty());
+    active = list.length - 1;
+    store();
+    render();
+    $(fields[0]).focus();
+  };
+
+  $(delBtn).onclick = () => {
+    if (list.length < 2) return;
+    if (!confirm('Supprimer « ' + label(list[active], active) + ' » ?')) return;
+    list.splice(active, 1);
+    active = Math.max(0, active - 1);
+    store();
+    render();
+  };
 }
-
-PROFILE_FIELDS.forEach(f => $(f).addEventListener('input', () => {
-  profiles[activeProfile][f] = $(f).value;
-  storeProfiles();
-  if (f === 'eNom') $('profile').options[activeProfile].text = profileLabel(profiles[activeProfile], activeProfile);
-}));
-
-$('profile').onchange = () => { activeProfile = parseInt($('profile').value, 10); storeProfiles(); renderProfiles(); };
-
-$('addProfile').onclick = () => {
-  profiles.push(emptyProfile());
-  activeProfile = profiles.length - 1;
-  storeProfiles();
-  renderProfiles();
-  $('eNom').focus();
-};
-
-$('delProfile').onclick = () => {
-  if (profiles.length < 2) return;
-  if (!confirm('Supprimer le profil « ' + profileLabel(profiles[activeProfile], activeProfile) + ' » ?')) return;
-  profiles.splice(activeProfile, 1);
-  activeProfile = Math.max(0, activeProfile - 1);
-  storeProfiles();
-  renderProfiles();
-};
 
 function loadSaved(){
   SAVED.forEach(i => { const v = localStorage.getItem('devis_'+i); if(v !== null) $(i).value = v; });
@@ -286,7 +286,10 @@ $('tva').onchange = calc;
 $('pdf').onclick = makePDF;
 $('reset').onclick = newQuote;
 
-loadProfiles();
+profileManager({key:'profiles', fields:['eNom','eSiret','eEmail','eTel','eAdr'], select:'profile',
+  addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true});
+profileManager({key:'clients', fields:['cNom','cEmail','cAdr'], select:'client',
+  addBtn:'addClient', delBtn:'delClient', defaultName:'Client'});
 loadSaved();
 newQuote();
 </script>
