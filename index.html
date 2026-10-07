@@ -62,7 +62,7 @@ button:disabled{opacity:.5;cursor:default}
  <p id="msg" class="msg" role="status"></p>
 
  <section>
-  <h2>Base de données</h2>
+  <h2 id="dbTitle">Base de données</h2>
   <p id="dbStatus" class="status"></p>
   <div id="dbLogin" hidden>
    <div class="grid">
@@ -70,9 +70,16 @@ button:disabled{opacity:.5;cursor:default}
     <div><label for="authPass">Mot de passe</label><input id="authPass" type="password" autocomplete="current-password"></div>
    </div>
    <div class="actions" style="margin-top:12px">
+    <button id="forgot">Mot de passe oublié</button>
     <button id="signup">Créer un compte</button>
     <button id="login" class="primary">Se connecter</button>
    </div>
+  </div>
+  <div id="dbReset" hidden>
+   <div class="grid">
+    <div><label for="newPass">Nouveau mot de passe</label><input id="newPass" type="password" autocomplete="new-password"></div>
+   </div>
+   <div class="actions" style="margin-top:12px"><button id="setPass" class="primary">Enregistrer le mot de passe</button></div>
   </div>
   <div id="dbUser" class="actions" hidden><button id="logout">Se déconnecter</button></div>
   <details id="dbConfig">
@@ -174,6 +181,12 @@ const newId = () => crypto.randomUUID ? crypto.randomUUID() :
 const SAVED = ['notes'];
 const STATUTS = {brouillon:'Brouillon', envoye:'Envoyé', accepte:'Accepté', refuse:'Refusé'};
 const MENTIONS_FACTURE = 'Pénalités de retard : trois fois le taux d\'intérêt légal. Indemnité forfaitaire pour frais de recouvrement : 40 € (clients professionnels). Pas d\'escompte pour paiement anticipé.';
+
+// Projet Supabase commun à tous les utilisateurs : renseignez son URL et sa clé publique
+// (anon / publishable, jamais la clé secrète) pour que personne n'ait rien à configurer.
+// Laissés vides, chacun peut relier la page à son propre projet via « Configuration Supabase ».
+const SUPABASE_URL = '';
+const SUPABASE_KEY = '';
 
 // Base de données Supabase : null tant qu'elle n'est pas configurée ou que personne n'est connecté.
 let sb = null, user = null;
@@ -489,18 +502,41 @@ function isSecretKey(k){
   catch(e){ return false; }
 }
 
+// Adresse de la page, vers laquelle renvoient les liens des emails (confirmation, mot de passe).
+const pageUrl = () => location.href.split(/[?#]/)[0];
+let resettingPassword = false;
+
 function renderDb(){
-  const url = localStorage.getItem('devis_sbUrl');
+  const url = SUPABASE_URL || localStorage.getItem('devis_sbUrl');
+  $('dbTitle').textContent = SUPABASE_URL ? 'Mon compte' : 'Base de données';
   $('dbStatus').textContent =
     !url ? 'Non configurée : vos entreprises et clients restent dans ce navigateur. Renseignez la configuration Supabase pour enregistrer devis et factures.'
-    : !sb ? 'La bibliothèque Supabase n\'a pas pu être chargée. Vérifiez la connexion internet et la configuration.'
-    : user ? 'Connecté : ' + user.email + '. Devis, factures, entreprises et clients sont enregistrés dans la base.'
-    : 'Connectez-vous pour enregistrer vos devis et factures.';
+    : !sb ? 'Le service de sauvegarde n\'a pas pu être chargé. Vérifiez votre connexion internet.'
+    : resettingPassword ? 'Choisissez votre nouveau mot de passe.'
+    : user ? 'Connecté : ' + user.email + '. Devis, factures, entreprises et clients sont enregistrés en ligne.'
+    : 'Connectez-vous, ou créez un compte, pour enregistrer vos devis et factures.';
   $('dbLogin').hidden = !sb || !!user;
-  $('dbUser').hidden = !user;
+  $('dbReset').hidden = !resettingPassword;
+  $('dbUser').hidden = !user || resettingPassword;
   $('save').hidden = $('devisSection').hidden = $('factSection').hidden = !user;
+  $('dbConfig').hidden = !!SUPABASE_URL;
   $('dbConfig').open = !sb;
 }
+
+// Messages d'erreur Supabase les plus courants, en français.
+const ERREURS = {
+  invalid_credentials: 'email ou mot de passe incorrect.',
+  email_not_confirmed: 'adresse email non confirmée. Cliquez sur le lien reçu par email.',
+  user_already_exists: 'un compte existe déjà avec cet email.',
+  weak_password: 'mot de passe trop faible (6 caractères minimum).',
+  same_password: 'le nouveau mot de passe doit être différent de l\'ancien.',
+  signup_disabled: 'les inscriptions sont fermées.',
+  email_address_invalid: 'adresse email invalide.',
+  over_email_send_rate_limit: 'trop d\'emails envoyés. Réessayez dans quelques minutes.',
+  over_request_rate_limit: 'trop de tentatives. Réessayez dans quelques minutes.'
+};
+const errorText = e => ERREURS[e.code]
+  || (/fetch|network/i.test(e.message || '') ? 'serveur injoignable. Vérifiez votre connexion internet.' : e.message || String(e));
 
 // Exécute un appel à la base et affiche l'erreur éventuelle ; renvoie data (true si vide), ou null en cas d'erreur.
 async function db(request, what){
@@ -509,7 +545,7 @@ async function db(request, what){
     if (error) throw error;
     return data ?? true;
   } catch(e){
-    toast(what + ' : ' + (e.message || e), true);
+    toast(what + ' : ' + errorText(e), true);
     return null;
   }
 }
@@ -529,7 +565,7 @@ async function onSession(session){
 }
 
 function initSupabase(){
-  const url = localStorage.getItem('devis_sbUrl'), key = localStorage.getItem('devis_sbKey');
+  const url = SUPABASE_URL || localStorage.getItem('devis_sbUrl'), key = SUPABASE_KEY || localStorage.getItem('devis_sbKey');
   $('sbUrl').value = url || '';
   $('sbKey').value = key || '';
   if (url && key && window.supabase){
@@ -538,7 +574,11 @@ function initSupabase(){
   }
   renderDb();
   // Les appels à la base se font hors du callback, comme le recommande Supabase.
-  if (sb) sb.auth.onAuthStateChange((event, session) => setTimeout(() => onSession(session), 0));
+  if (sb) sb.auth.onAuthStateChange((event, session) => setTimeout(() => {
+    // Arrivée depuis le lien « mot de passe oublié » reçu par email
+    if (event === 'PASSWORD_RECOVERY'){ resettingPassword = true; renderDb(); }
+    onSession(session);
+  }, 0));
 }
 
 $('sbSave').onclick = () => {
@@ -570,9 +610,27 @@ $('login').onclick = async () => {
 $('signup').onclick = async () => {
   const c = credentials();
   if (!c) return;
-  const data = await db(sb.auth.signUp(c), 'Création du compte impossible');
+  const data = await db(sb.auth.signUp(Object.assign(c, {options: {emailRedirectTo: pageUrl()}})), 'Création du compte impossible');
   if (data && !data.session) toast('Compte créé. Confirmez votre adresse avec le lien reçu par email, puis connectez-vous.');
   else if (data) toast('Compte créé, vous êtes connecté.');
+};
+
+$('forgot').onclick = async () => {
+  const email = $('authEmail').value.trim();
+  if (!email){ toast('Indiquez votre email, puis cliquez sur « Mot de passe oublié ».', true); return; }
+  if (await db(sb.auth.resetPasswordForEmail(email, {redirectTo: pageUrl()}), 'Envoi impossible'))
+    toast('Si un compte existe pour ' + email + ', un email avec un lien pour changer le mot de passe vient d\'être envoyé.');
+};
+
+$('setPass').onclick = async () => {
+  const password = $('newPass').value;
+  if (!password){ toast('Indiquez le nouveau mot de passe.', true); return; }
+  if (await db(sb.auth.updateUser({password}), 'Changement impossible')){
+    resettingPassword = false;
+    $('newPass').value = '';
+    renderDb();
+    toast('Mot de passe modifié.');
+  }
 };
 
 $('logout').onclick = async () => {
