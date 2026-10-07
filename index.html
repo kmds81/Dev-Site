@@ -6,71 +6,213 @@
 <title>Générateur de devis</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#eef1f4;--card:#fff;--ink:#1b2430;--muted:#5d6b7c;--line:#d5dbe3;--accent:#1f4fd8;--accent-ink:#fff}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:860px;margin:0 auto;padding:24px 16px 64px}
-h1{font-size:1.9rem;margin:0 0 4px;letter-spacing:-.02em}
-.sub{color:var(--muted);margin:0 0 24px}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
-h2{font-size:1.05rem;margin:0 0 14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
-input,textarea,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;font:inherit;color:var(--ink);background:#fff}
-input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.line{display:grid;grid-template-columns:1fr 80px 110px 100px 36px;gap:8px;align-items:end;margin-bottom:10px}
-.line .total{padding:9px 0;text-align:right;font-variant-numeric:tabular-nums}
-.head{font-size:.8rem;color:var(--muted);margin-bottom:6px}
-button{font:inherit;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 14px;cursor:pointer}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-button.del{padding:9px 0;color:#b3261e}
-.totals{margin-left:auto;max-width:320px;font-variant-numeric:tabular-nums}
-.totals div{display:flex;justify-content:space-between;padding:4px 0}
-.totals .ttc{border-top:2px solid var(--ink);margin-top:6px;padding-top:10px;font-size:1.25rem;font-weight:700}
-.profiles{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
-.profiles>div{flex:1 1 220px}
-.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-@media(max-width:640px){
- .line{grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);padding-bottom:10px}
- .line .desc{grid-column:1/-1}.head{display:none}
+:root{
+ color-scheme:light;
+ --bg:#f3f5f9;--surface:#fff;--surface-2:#f8fafc;--ink:#0f172a;--muted:#64748b;
+ --line:#e3e8ef;--line-strong:#cbd5e1;--field:#fff;
+ --accent:#2557d6;--accent-hover:#1d47b5;--accent-ink:#fff;--accent-soft:#edf2ff;
+ --danger:#c62828;--danger-soft:#fdecec;--success:#15803d;--success-soft:#e3f6e9;
+ --warn:#a15c07;--warn-soft:#fdf2dc;--neutral-soft:#eef1f5;
+ --shadow:0 1px 2px rgba(15,23,42,.04),0 2px 8px rgba(15,23,42,.05);
+ --radius:14px;
 }
-.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.92rem}
-.list th{text-align:left;font-weight:600;color:var(--muted);font-size:.8rem;padding:6px 8px;border-bottom:1px solid var(--line)}
-.list td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
-.list td.num{text-align:right;white-space:nowrap}
-.list td:first-child{white-space:nowrap}
-.list select{width:auto;padding:5px 6px}
+@media (prefers-color-scheme:dark){
+ :root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0b1120;--surface:#121a2b;--surface-2:#0f1626;--ink:#e6eaf2;--muted:#94a3b8;
+  --line:#22304a;--line-strong:#33425e;--field:#0f1626;
+  --accent:#5b8cff;--accent-hover:#7aa2ff;--accent-ink:#0b1120;--accent-soft:#1a2747;
+  --danger:#f87171;--danger-soft:#3a1a1f;--success:#4ade80;--success-soft:#13301f;
+  --warn:#fbbf24;--warn-soft:#352a12;--neutral-soft:#1b2537;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+ }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* Barre du haut */
+.topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em;font-size:1.02rem;white-space:nowrap}
+.logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#7c5cff);color:#fff;display:grid;place-items:center;font-size:.95rem;font-weight:700}
+.account{display:flex;align-items:center;gap:10px;min-width:0}
+.account .who{color:var(--muted);font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:600;font-size:.85rem;flex:none}
+
+/* Titre */
+.intro{padding:28px 0 20px}
+h1{font-size:1.65rem;line-height:1.2;margin:0 0 6px;letter-spacing:-.025em}
+.sub{color:var(--muted);margin:0}
+
+/* Cartes */
+section,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:16px;box-shadow:var(--shadow)}
+.sec-head{display:flex;align-items:center;gap:12px;margin:0 0 18px}
+.step{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:.8rem;font-weight:700;flex:none}
+h2{font-size:1.02rem;margin:0;letter-spacing:-.01em}
+.sec-head p{margin:0;color:var(--muted);font-size:.85rem}
+
+/* Mise en page */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.side{position:sticky;top:80px}
+.lists{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:8px}
+@media(max-width:980px){
+ .layout{grid-template-columns:1fr}
+ .side{position:static}
+}
+
+/* Champs */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.field{margin-top:14px}
+label{display:block;font-size:.8rem;font-weight:500;color:var(--muted);margin-bottom:6px}
+input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:10px;font:inherit;color:var(--ink);background:var(--field);transition:border-color .15s,box-shadow .15s}
+textarea{resize:vertical;min-height:44px}
+input::placeholder,textarea::placeholder{color:color-mix(in srgb,var(--muted) 70%,transparent)}
+input:hover,textarea:hover,select:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--line-strong))}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Boutons */
+button{font:inherit;font-weight:500;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);padding:9px 15px;cursor:pointer;transition:background .15s,border-color .15s,color .15s,transform .05s;white-space:nowrap}
+button:hover{background:var(--surface-2);border-color:color-mix(in srgb,var(--accent) 30%,var(--line-strong))}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+button.del{color:var(--danger);border-color:transparent;background:transparent}
+button.del:hover{background:var(--danger-soft);border-color:transparent}
+button.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+button.ghost:hover{background:var(--accent-soft)}
+button:disabled,button:disabled:hover{opacity:.45;cursor:default;transform:none;background:inherit}
+button.primary:disabled{background:var(--accent)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+
+/* Profils enregistrés */
+.profiles{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:18px;padding:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+.profiles>div{flex:1 1 220px}
+.profiles select{background:var(--surface)}
+
+/* Sections repliables */
+details{margin-top:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+details summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:500;color:var(--accent);display:flex;align-items:center;gap:8px}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s;margin:0 4px 0 2px}
+details[open] summary::before{transform:rotate(45deg)}
+details>:not(summary){margin-left:14px;margin-right:14px}
+details>:last-child{margin-bottom:14px}
+details input,details textarea{background:var(--field)}
+.hint{font-size:.82rem;color:var(--muted);margin:4px 0 0}
+
+/* Lignes de prestations */
+.line{display:grid;grid-template-columns:1fr 80px 120px 110px 38px;gap:8px;align-items:center;margin-bottom:8px}
+.line.head{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px;padding:0 2px}
+.line .total{text-align:right;font-variant-numeric:tabular-nums;font-weight:500;padding-right:4px}
+.line button.del{padding:8px 0;font-size:1rem;line-height:1}
+#add{margin-top:6px}
+@media(max-width:640px){
+ .line{grid-template-columns:1fr 1fr 38px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin-bottom:10px}
+ .line .desc{grid-column:1/-1}
+ .line .total{grid-column:1/3;text-align:left;color:var(--muted)}
+ .line.head{display:none}
+}
+
+/* Récapitulatif */
+.summary h2{margin-bottom:14px}
+.totals{font-variant-numeric:tabular-nums}
+.totals div{display:flex;justify-content:space-between;padding:6px 0;color:var(--muted)}
+.totals div span:last-child{color:var(--ink);font-weight:500}
+.totals .ttc{margin-top:10px;padding:14px 16px;border-radius:12px;background:var(--accent-soft);color:var(--ink);align-items:baseline}
+.totals .ttc span:first-child{font-weight:600;color:var(--ink)}
+.totals .ttc span:last-child{font-size:1.45rem;font-weight:700;color:var(--accent);letter-spacing:-.02em}
+.summary .stack{display:grid;gap:8px;margin-top:18px}
+.summary .stack button{width:100%;padding:11px 15px}
+
+/* Listes */
+.list{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:.9rem}
+.list th{text-align:left;font-weight:600;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.list th:first-child{border-top-left-radius:10px}.list th:last-child{border-top-right-radius:10px}
+.list td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.list tbody tr:hover td{background:var(--surface-2)}
+.list tbody tr:last-child td{border-bottom:none}
+.list td.num{text-align:right;white-space:nowrap;font-weight:500}
+.list td:first-child{white-space:nowrap;font-weight:600}
 .list .btns{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
-.list button{padding:5px 10px;font-size:.88rem}
-.scroll{overflow-x:auto}
-.empty{color:var(--muted);margin:0}
-.msg{margin:0 0 16px;padding:10px 14px;border-radius:8px;background:#e5f3e8;color:#14532d}
-.msg.err{background:#fde8e7;color:#8c1d18}
+.list button{padding:6px 11px;font-size:.84rem}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.empty{color:var(--muted);margin:0;padding:22px;text-align:center;border:1px dashed var(--line-strong);border-radius:12px;font-size:.9rem}
+
+/* Statuts */
+.list select,.pill{width:auto;font-size:.8rem;font-weight:600;border-radius:999px;padding:4px 26px 4px 10px;border:1px solid transparent;background-color:var(--neutral-soft);color:var(--muted);cursor:pointer}
+.pill{display:inline-block;padding:4px 10px;cursor:default}
+.list select:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+[data-v="envoye"]{background-color:var(--accent-soft)!important;color:var(--accent)!important}
+[data-v="accepte"],[data-v="payee"],[data-v="facture"]{background-color:var(--success-soft)!important;color:var(--success)!important}
+[data-v="refuse"]{background-color:var(--danger-soft)!important;color:var(--danger)!important}
+[data-v="emise"]{background-color:var(--warn-soft)!important;color:var(--warn)!important}
+
+/* Compte */
+.status{color:var(--muted);margin:0 0 16px}
+#authSection .actions{margin-top:14px}
+
+/* Notifications */
+.msg{position:fixed;left:50%;bottom:24px;z-index:50;max-width:min(560px,calc(100vw - 32px));margin:0;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--surface);box-shadow:0 10px 30px rgba(15,23,42,.25);font-size:.92rem;opacity:0;transform:translate(-50%,12px);pointer-events:none;transition:opacity .2s,transform .2s;cursor:pointer}
+.msg.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.msg.err{background:var(--danger);color:#fff}
 .msg:empty{display:none}
-.status{color:var(--muted);margin:0 0 12px}
-details summary{cursor:pointer;color:var(--accent);margin-top:12px}
-.hint{font-size:.85rem;color:var(--muted);margin:8px 0 0}
-button:disabled{opacity:.5;cursor:default}
+
+/* Barre mobile */
+.mobilebar{display:none}
+@media(max-width:980px){
+ .mobilebar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(15,23,42,.08)}
+ .mobilebar small{display:block;color:var(--muted);font-size:.72rem;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+ .mobilebar strong{font-size:1.15rem;font-variant-numeric:tabular-nums}
+ body{padding-bottom:76px}
+ .msg{bottom:88px}
+}
+@media(max-width:640px){
+ .wrap{padding:0 16px}
+ section,.card{padding:18px;border-radius:12px}
+ .intro{padding:20px 0 14px}
+ h1{font-size:1.4rem}
+ .account .who{display:none}
+}
+footer{color:var(--muted);font-size:.8rem;text-align:center;padding:28px 0 36px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
-<main>
- <h1>Générateur de devis</h1>
- <p class="sub">Remplissez les champs, vérifiez le total, puis téléchargez le PDF.</p>
- <p id="msg" class="msg" role="status"></p>
+<header class="topbar">
+ <div class="wrap">
+  <div class="brand"><span class="logo" aria-hidden="true">D</span><span>Devis &amp; Factures</span></div>
+  <div id="dbUser" class="account" hidden>
+   <span class="avatar" id="userInitial" aria-hidden="true"></span>
+   <span class="who" id="userEmail"></span>
+   <button id="logout" class="ghost">Se déconnecter</button>
+  </div>
+ </div>
+</header>
 
- <section>
-  <h2 id="dbTitle">Base de données</h2>
+<main class="wrap">
+ <div class="intro">
+  <h1>Générateur de devis</h1>
+  <p class="sub">Remplissez les champs, vérifiez le total, puis téléchargez le PDF.</p>
+ </div>
+ <p id="msg" class="msg" role="status" aria-live="polite"></p>
+
+ <section id="authSection">
+  <div class="sec-head"><h2 id="dbTitle">Base de données</h2></div>
   <p id="dbStatus" class="status"></p>
   <div id="dbLogin" hidden>
    <div class="grid">
     <div><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username"></div>
     <div><label for="authPass">Mot de passe</label><input id="authPass" type="password" autocomplete="current-password"></div>
    </div>
-   <div class="actions" style="margin-top:12px">
-    <button id="forgot">Mot de passe oublié</button>
+   <div class="actions">
+    <button id="forgot" class="ghost">Mot de passe oublié</button>
     <button id="signup">Créer un compte</button>
     <button id="login" class="primary">Se connecter</button>
    </div>
@@ -79,116 +221,139 @@ button:disabled{opacity:.5;cursor:default}
    <div class="grid">
     <div><label for="newPass">Nouveau mot de passe</label><input id="newPass" type="password" autocomplete="new-password"></div>
    </div>
-   <div class="actions" style="margin-top:12px"><button id="setPass" class="primary">Enregistrer le mot de passe</button></div>
+   <div class="actions"><button id="setPass" class="primary">Enregistrer le mot de passe</button></div>
   </div>
-  <div id="dbUser" class="actions" hidden><button id="logout">Se déconnecter</button></div>
   <details id="dbConfig">
    <summary>Configuration Supabase</summary>
-   <div class="grid" style="margin-top:12px">
+   <div class="grid">
     <div><label for="sbUrl">URL du projet</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"></div>
     <div><label for="sbKey">Clé publique (anon / publishable)</label><input id="sbKey"></div>
    </div>
-   <div class="actions" style="margin-top:12px"><button id="sbSave">Enregistrer la configuration</button></div>
+   <div class="actions" style="margin-top:14px"><button id="sbSave">Enregistrer la configuration</button></div>
    <p class="hint">Les étapes pour créer la base gratuite sont décrites dans SUPABASE.md. N'utilisez jamais la clé secrète (service_role).</p>
   </details>
  </section>
 
- <section>
-  <h2>Votre entreprise</h2>
-  <div class="profiles">
-   <div><label for="profile">Profil d'entreprise</label><select id="profile"></select></div>
-   <button id="addProfile">Ajouter une entreprise</button>
-   <button id="delProfile" class="del" style="padding:9px 14px">Supprimer</button>
+ <div class="layout">
+  <div class="main-col">
+   <section>
+    <div class="sec-head"><span class="step">1</span><div><h2>Votre entreprise</h2><p>Les informations qui apparaissent en en-tête des documents.</p></div></div>
+    <div class="profiles">
+     <div><label for="profile">Profil d'entreprise</label><select id="profile"></select></div>
+     <button id="addProfile">Ajouter une entreprise</button>
+     <button id="delProfile" class="del">Supprimer</button>
+    </div>
+    <div class="grid">
+     <div><label for="eNom">Nom</label><input id="eNom"></div>
+     <div><label for="eSiret">SIRET</label><input id="eSiret"></div>
+     <div><label for="eEmail">Email</label><input id="eEmail" type="email"></div>
+     <div><label for="eTel">Téléphone</label><input id="eTel"></div>
+    </div>
+    <div class="field"><label for="eAdr">Adresse</label><textarea id="eAdr" rows="2"></textarea></div>
+    <details id="legal">
+     <summary>Mentions légales et conditions des factures</summary>
+     <p class="hint">Ces informations figurent sur les devis et les factures de cette entreprise.
+      Pour une entreprise individuelle, ajoutez « EI » au nom (ex. « Jean Dupont EI »).</p>
+     <div class="grid" style="margin-top:12px">
+      <div><label for="eForme">Forme juridique</label><input id="eForme" list="formes" placeholder="Ex. SARL, SAS, EI"></div>
+      <div><label for="eCapital">Capital social (sociétés)</label><input id="eCapital" placeholder="Ex. 1 000 €"></div>
+      <div><label for="eRcs">Immatriculation (RCS / RM)</label><input id="eRcs" placeholder="Ex. RCS Paris 123 456 789"></div>
+      <div><label for="eTvaIntra">N° de TVA intracommunautaire</label><input id="eTvaIntra" placeholder="Ex. FR12 123456789"></div>
+      <div><label for="eDelai">Délai de paiement des factures (jours)</label><input id="eDelai" type="number" min="0" step="1"></div>
+     </div>
+     <datalist id="formes"><option value="EI"><option value="EI (micro-entrepreneur)"><option value="EURL"><option value="SARL"><option value="SASU"><option value="SAS"></datalist>
+     <div class="field"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
+      <textarea id="eAssurance" rows="2"></textarea></div>
+     <div class="field"><label for="eCondFacture">Conditions des factures (mode de paiement, coordonnées bancaires…)</label>
+      <textarea id="eCondFacture" rows="3"></textarea></div>
+     <p class="hint">Les factures ajoutent toujours : pénalités de retard, indemnité forfaitaire de 40 € et absence d'escompte.</p>
+    </details>
+   </section>
+
+   <section>
+    <div class="sec-head"><span class="step">2</span><div><h2>Client</h2><p>Choisissez un client enregistré ou ajoutez-en un.</p></div></div>
+    <div class="profiles">
+     <div><label for="client">Client enregistré</label><select id="client"></select></div>
+     <button id="addClient">Ajouter un client</button>
+     <button id="delClient" class="del">Supprimer</button>
+    </div>
+    <div class="grid">
+     <div><label for="cNom">Nom du client</label><input id="cNom"></div>
+     <div><label for="cEmail">Email du client</label><input id="cEmail" type="email"></div>
+     <div><label for="cSiren">SIREN du client (si professionnel)</label><input id="cSiren"></div>
+    </div>
+    <div class="field"><label for="cAdr">Adresse du client</label><textarea id="cAdr" rows="2"></textarea></div>
+   </section>
+
+   <section>
+    <div class="sec-head"><span class="step">3</span><div><h2>Devis</h2><p>Numéro, dates et TVA.</p></div></div>
+    <div class="grid">
+     <div><label for="dNum">N° de devis</label><input id="dNum"></div>
+     <div><label for="dDate">Date</label><input id="dDate" type="date"></div>
+     <div><label for="dValid">Valable jusqu'au</label><input id="dValid" type="date"></div>
+     <div><label for="tva">Taux de TVA</label>
+      <select id="tva"><option value="20">20 %</option><option value="10">10 %</option><option value="5.5">5,5 %</option><option value="0">0 % (non applicable)</option></select></div>
+    </div>
+   </section>
+
+   <section>
+    <div class="sec-head"><span class="step">4</span><div><h2>Prestations</h2><p>Une ligne par prestation ou fourniture.</p></div></div>
+    <div class="line head"><span>Description</span><span>Qté</span><span>Prix unitaire HT</span><span style="text-align:right">Total HT</span><span></span></div>
+    <div id="lines"></div>
+    <button id="add" class="ghost">+ Ajouter une ligne</button>
+   </section>
+
+   <section>
+    <div class="sec-head"><span class="step">5</span><div><h2>Conditions du devis</h2><p>Paiement, acompte, délais d'intervention…</p></div></div>
+    <label for="notes" hidden>Conditions du devis (paiement, délais…)</label>
+    <textarea id="notes" rows="3">Paiement à 30 jours à réception de facture. Acompte de 30 % à la commande.</textarea>
+   </section>
   </div>
-  <div class="grid">
-   <div><label for="eNom">Nom</label><input id="eNom"></div>
-   <div><label for="eSiret">SIRET</label><input id="eSiret"></div>
-   <div><label for="eEmail">Email</label><input id="eEmail" type="email"></div>
-   <div><label for="eTel">Téléphone</label><input id="eTel"></div>
-  </div>
-  <div style="margin-top:12px"><label for="eAdr">Adresse</label><textarea id="eAdr" rows="2"></textarea></div>
-  <details id="legal">
-   <summary>Mentions légales et conditions des factures</summary>
-   <p class="hint">Ces informations figurent sur les devis et les factures de cette entreprise.
-    Pour une entreprise individuelle, ajoutez « EI » au nom (ex. « Jean Dupont EI »).</p>
-   <div class="grid" style="margin-top:12px">
-    <div><label for="eForme">Forme juridique</label><input id="eForme" list="formes" placeholder="Ex. SARL, SAS, EI"></div>
-    <div><label for="eCapital">Capital social (sociétés)</label><input id="eCapital" placeholder="Ex. 1 000 €"></div>
-    <div><label for="eRcs">Immatriculation (RCS / RM)</label><input id="eRcs" placeholder="Ex. RCS Paris 123 456 789"></div>
-    <div><label for="eTvaIntra">N° de TVA intracommunautaire</label><input id="eTvaIntra" placeholder="Ex. FR12 123456789"></div>
-    <div><label for="eDelai">Délai de paiement des factures (jours)</label><input id="eDelai" type="number" min="0" step="1"></div>
+
+  <aside class="side">
+   <div class="card summary">
+    <h2>Récapitulatif</h2>
+    <div class="totals">
+     <div><span>Total HT</span><span id="ht">0,00 €</span></div>
+     <div><span>TVA</span><span id="tvaAmt">0,00 €</span></div>
+     <div class="ttc"><span>Total TTC</span><span id="ttc">0,00 €</span></div>
+    </div>
+    <div class="stack">
+     <button id="invoicePdf" class="primary" hidden>Télécharger la facture (PDF)</button>
+     <button id="pdf" class="primary">Télécharger le devis (PDF)</button>
+     <button id="save" hidden>Enregistrer le devis</button>
+     <button id="reset" class="ghost">Nouveau devis</button>
+    </div>
    </div>
-   <datalist id="formes"><option value="EI"><option value="EI (micro-entrepreneur)"><option value="EURL"><option value="SARL"><option value="SASU"><option value="SAS"></datalist>
-   <div style="margin-top:12px"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
-    <textarea id="eAssurance" rows="2"></textarea></div>
-   <div style="margin-top:12px"><label for="eCondFacture">Conditions des factures (mode de paiement, coordonnées bancaires…)</label>
-    <textarea id="eCondFacture" rows="3"></textarea></div>
-   <p class="hint">Les factures ajoutent toujours : pénalités de retard, indemnité forfaitaire de 40 € et absence d'escompte.</p>
-  </details>
- </section>
-
- <section>
-  <h2>Client et devis</h2>
-  <div class="profiles">
-   <div><label for="client">Client enregistré</label><select id="client"></select></div>
-   <button id="addClient">Ajouter un client</button>
-   <button id="delClient" class="del" style="padding:9px 14px">Supprimer</button>
-  </div>
-  <div class="grid">
-   <div><label for="cNom">Nom du client</label><input id="cNom"></div>
-   <div><label for="cEmail">Email du client</label><input id="cEmail" type="email"></div>
-   <div><label for="cSiren">SIREN du client (si professionnel)</label><input id="cSiren"></div>
-   <div><label for="dNum">N° de devis</label><input id="dNum"></div>
-   <div><label for="dDate">Date</label><input id="dDate" type="date"></div>
-   <div><label for="dValid">Valable jusqu'au</label><input id="dValid" type="date"></div>
-   <div><label for="tva">Taux de TVA</label>
-    <select id="tva"><option value="20">20 %</option><option value="10">10 %</option><option value="5.5">5,5 %</option><option value="0">0 % (non applicable)</option></select></div>
-  </div>
-  <div style="margin-top:12px"><label for="cAdr">Adresse du client</label><textarea id="cAdr" rows="2"></textarea></div>
- </section>
-
- <section>
-  <h2>Prestations</h2>
-  <div class="line head"><span>Description</span><span>Qté</span><span>Prix unitaire HT</span><span style="text-align:right">Total HT</span><span></span></div>
-  <div id="lines"></div>
-  <button id="add">Ajouter une ligne</button>
- </section>
-
- <section>
-  <div class="totals">
-   <div><span>Total HT</span><span id="ht">0,00 €</span></div>
-   <div><span>TVA</span><span id="tvaAmt">0,00 €</span></div>
-   <div class="ttc"><span>Total TTC</span><span id="ttc">0,00 €</span></div>
-  </div>
-  <div style="margin-top:14px"><label for="notes">Conditions du devis (paiement, délais…)</label>
-   <textarea id="notes" rows="3">Paiement à 30 jours à réception de facture. Acompte de 30 % à la commande.</textarea></div>
- </section>
-
- <div class="actions">
-  <button id="reset">Nouveau devis</button>
-  <button id="save" hidden>Enregistrer le devis</button>
-  <button id="invoicePdf" class="primary" hidden>Télécharger la facture (PDF)</button>
-  <button id="pdf" class="primary">Télécharger le devis (PDF)</button>
+  </aside>
  </div>
 
- <section id="devisSection" style="margin-top:24px" hidden>
-  <h2>Mes devis</h2>
-  <p id="devisEmpty" class="empty">Aucun devis enregistré.</p>
-  <div class="scroll"><table class="list" id="devisTable" hidden>
-   <thead><tr><th>N°</th><th>Client</th><th>Date</th><th style="text-align:right">Total TTC</th><th>Statut</th><th></th></tr></thead>
-   <tbody id="devisRows"></tbody>
-  </table></div>
- </section>
+ <div class="lists">
+  <section id="devisSection" hidden>
+   <div class="sec-head"><div><h2>Mes devis</h2><p>Ouvrez un devis pour le modifier, ou convertissez-le en facture.</p></div></div>
+   <p id="devisEmpty" class="empty">Aucun devis enregistré.</p>
+   <div class="scroll" id="devisWrap"><table class="list" id="devisTable" hidden>
+    <thead><tr><th>N°</th><th>Client</th><th>Date</th><th style="text-align:right">Total TTC</th><th>Statut</th><th></th></tr></thead>
+    <tbody id="devisRows"></tbody>
+   </table></div>
+  </section>
 
- <section id="factSection" hidden>
-  <h2>Mes factures</h2>
-  <p id="factEmpty" class="empty">Aucune facture. Convertissez un devis enregistré pour créer une facture.</p>
-  <div class="scroll"><table class="list" id="factTable" hidden>
-   <thead><tr><th>N°</th><th>Client</th><th>Date</th><th>Échéance</th><th style="text-align:right">Total TTC</th><th>Statut</th><th></th></tr></thead>
-   <tbody id="factRows"></tbody>
-  </table></div>
- </section>
+  <section id="factSection" hidden>
+   <div class="sec-head"><div><h2>Mes factures</h2><p>Une facture émise ne peut plus être modifiée.</p></div></div>
+   <p id="factEmpty" class="empty">Aucune facture. Convertissez un devis enregistré pour créer une facture.</p>
+   <div class="scroll" id="factWrap"><table class="list" id="factTable" hidden>
+    <thead><tr><th>N°</th><th>Client</th><th>Date</th><th>Échéance</th><th style="text-align:right">Total TTC</th><th>Statut</th><th></th></tr></thead>
+    <tbody id="factRows"></tbody>
+   </table></div>
+  </section>
+ </div>
+ <footer>Devis &amp; Factures</footer>
 </main>
+
+<div class="mobilebar">
+ <div><small>Total TTC</small><strong id="ttcBar">0,00 €</strong></div>
+ <button id="pdfBar" class="primary">Télécharger le PDF</button>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -213,10 +378,15 @@ let sb = null, user = null;
 // Devis affiché dans le formulaire, s'il est enregistré dans la base.
 let currentDevis = null;
 
+let toastTimer;
 function toast(text, isError){
+  // Notification flottante : les confirmations disparaissent seules, les erreurs au clic
+  clearTimeout(toastTimer);
   $('msg').textContent = text;
-  $('msg').className = isError ? 'msg err' : 'msg';
+  $('msg').className = (isError ? 'msg err' : 'msg') + (text ? ' show' : '');
+  if (text && !isError) toastTimer = setTimeout(() => $('msg').classList.remove('show'), 5000);
 }
+$('msg').onclick = () => $('msg').classList.remove('show');
 
 function el(tag, props = {}, ...children){
   const e = Object.assign(document.createElement(tag), props);
@@ -263,7 +433,7 @@ function calc(){
   const t = totals(lines, parseFloat($('tva').value));
   $('ht').textContent = fmt(t.ht);
   $('tvaAmt').textContent = fmt(t.tva);
-  $('ttc').textContent = fmt(t.ttc);
+  $('ttc').textContent = $('ttcBar').textContent = fmt(t.ttc);
   return t;
 }
 
@@ -554,6 +724,10 @@ function renderDb(){
   $('dbLogin').hidden = !sb || !!user;
   $('dbReset').hidden = !resettingPassword;
   $('dbUser').hidden = !user || resettingPassword;
+  // Une fois connecté, le compte s'affiche dans la barre du haut
+  $('authSection').hidden = !!user && !resettingPassword;
+  $('userEmail').textContent = user ? user.email : '';
+  $('userInitial').textContent = user ? user.email[0].toUpperCase() : '';
   $('save').hidden = $('devisSection').hidden = $('factSection').hidden = !user;
   $('dbConfig').hidden = !!SUPABASE_URL;
   $('dbConfig').open = !sb;
@@ -748,11 +922,18 @@ async function deleteQuote(row){
   refreshDevis();
 }
 
+function pill(text, value){
+  const p = el('span', {className: 'pill', textContent: text});
+  p.dataset.v = value;
+  return p;
+}
+
 function statusSelect(options, value, onChange){
   const s = el('select');
+  s.setAttribute('aria-label', 'Statut');
   Object.entries(options).forEach(([v, t]) => s.add(new Option(t, v)));
-  s.value = value;
-  s.onchange = () => onChange(s.value);
+  s.value = s.dataset.v = value;
+  s.onchange = () => { s.dataset.v = s.value; onChange(s.value); };
   return s;
 }
 
@@ -762,7 +943,7 @@ async function refreshDevis(){
   $('devisEmpty').hidden = rows.length > 0;
   $('devisTable').hidden = !rows.length;
   $('devisRows').replaceChildren(...rows.map(r => {
-    const statut = r.statut === 'facture' ? 'Facturé' : statusSelect(STATUTS, r.statut, async v => {
+    const statut = r.statut === 'facture' ? pill('Facturé', 'facture') : statusSelect(STATUTS, r.statut, async v => {
       if (await db(sb.from('devis').update({statut: v}).eq('id', r.id), 'Changement de statut impossible')) r.statut = v;
     });
     const btns = el('div', {className: 'btns'}, el('button', {textContent: 'Ouvrir', onclick: () => openQuote(r.id)}));
@@ -795,6 +976,7 @@ function refreshLists(){ return Promise.all([refreshDevis(), refreshFactures()])
 $('add').onclick = () => addLine();
 $('tva').onchange = calc;
 $('pdf').onclick = quotePDF;
+$('pdfBar').onclick = () => ($('invoicePdf').hidden ? $('pdf') : $('invoicePdf')).click();
 $('invoicePdf').onclick = async () => {
   const f = await db(sb.from('factures').select('*').eq('devis_id', currentDevis.id).maybeSingle(), 'Lecture de la facture impossible');
   if (f && f !== true) invoicePDF(f);
