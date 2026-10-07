@@ -211,6 +211,11 @@ details>:last-child{margin-bottom:14px}
 .line button.lib:hover{color:var(--accent);background:var(--accent-soft)}
 .line button.lib.saved{color:var(--accent)}
 .line button.lib.saved svg{fill:currentColor}
+body.franchise .seg-wrap,body.franchise .tax-row,body.franchise .totals div:has(#tvaAmt){display:none}
+label.check{display:flex;align-items:flex-start;gap:10px;color:var(--ink);font-size:.86rem;font-weight:400;cursor:pointer;margin:0}
+label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;accent-color:var(--accent)}
+.franchise-box{padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.franchise-box .hint{margin-left:26px}
 .seg-wrap{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--muted)}
 .seg{display:inline-flex;padding:3px;background:var(--gray-soft);border-radius:7px}
 .seg button{height:26px;padding:0 12px;border:0;box-shadow:none;background:transparent;color:var(--muted);font-size:.8rem;border-radius:5px}
@@ -714,6 +719,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
         <div><label for="tva">Taux de TVA</label>
          <select id="tva"><option value="20">20 %</option><option value="10">10 %</option><option value="5.5">5,5 %</option><option value="0">0 % (non applicable)</option></select></div>
        </div>
+       <p class="hint" id="franchiseNote" hidden>Franchise en base de TVA : pas de TVA sur ce devis. La mention « TVA non applicable, art. 293 B du CGI » figure sur le devis et la facture. <a href="#/entreprise">Modifier</a></p>
       </div>
 
       <div class="card" id="secLignes">
@@ -742,9 +748,9 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
       <div class="card">
        <div class="card-head"><h2>Récapitulatif</h2><span class="badge" id="editorStatus" hidden></span></div>
        <div class="totals">
-        <div><span>Total HT</span><span id="ht">0,00 €</span></div>
+        <div class="tax-row"><span>Total HT</span><span id="ht">0,00 €</span></div>
         <div><span>TVA</span><span id="tvaAmt">0,00 €</span></div>
-        <div class="ttc"><span>Total TTC</span><span id="ttc">0,00 €</span></div>
+        <div class="ttc"><span id="ttcLabel">Total TTC</span><span id="ttc">0,00 €</span></div>
        </div>
        <div class="stack">
         <button id="invoicePdf" class="primary" hidden>Télécharger la facture (PDF)</button>
@@ -873,6 +879,10 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
         <div><label for="eTvaIntra">N° de TVA intracommunautaire</label><input id="eTvaIntra" placeholder="Ex. FR12 123456789"></div>
         <div><label for="eDelai">Délai de paiement des factures (jours)</label><input id="eDelai" type="number" min="0" step="1"></div>
        </div>
+       <div class="field franchise-box">
+        <label class="check"><input type="checkbox" id="eFranchise"> <span><strong>Franchise en base de TVA</strong> (micro-entrepreneur, auto-entrepreneur)</span></label>
+        <p class="hint">Les devis et factures de cette entreprise sont faits sans TVA : pas de HT ni de TTC, un seul total, et la mention « TVA non applicable, art. 293 B du CGI ». À décocher si vous dépassez les seuils de la franchise ou si vous choisissez de facturer la TVA.</p>
+       </div>
        <datalist id="formes"><option value="EI"><option value="EI (micro-entrepreneur)"><option value="EURL"><option value="SARL"><option value="SASU"><option value="SAS"></datalist>
        <div class="field"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
         <textarea id="eAssurance" rows="2"></textarea></div>
@@ -910,7 +920,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
 <p id="msg" class="msg" role="status" aria-live="polite"></p>
 
 <div class="mobilebar">
- <div><small>Total TTC</small><strong id="ttcBar">0,00 €</strong></div>
+ <div><small id="ttcBarLabel">Total TTC</small><strong id="ttcBar">0,00 €</strong></div>
  <button id="pdfBar" class="primary">Télécharger le PDF</button>
 </div>
 
@@ -986,7 +996,8 @@ function addLine(d='', q=1, p=0){
 
 // ---- Prix saisis en HT ou en TTC ----
 // Chaque ligne garde son prix unitaire HT (data-ht) ; le champ affiche le HT ou le TTC.
-const priceMode = () => document.body.dataset.prices === 'ttc' ? 'ttc' : 'ht';
+const isFranchise = () => document.body.classList.contains('franchise');
+const priceMode = () => !isFranchise() && document.body.dataset.prices === 'ttc' ? 'ttc' : 'ht';
 const tvaRate = () => (parseFloat($('tva').value) || 0) / 100;
 function showLinePrice(row){
   const ht = parseFloat(row.dataset.ht) || 0;
@@ -1001,14 +1012,35 @@ function setPriceMode(mode, save = true){
   document.body.dataset.prices = mode;
   $('priceHT').setAttribute('aria-pressed', mode === 'ht');
   $('priceTTC').setAttribute('aria-pressed', mode === 'ttc');
-  $('puHead').textContent = 'Prix unitaire ' + mode.toUpperCase();
-  $('totHead').textContent = 'Total ' + mode.toUpperCase();
-  $('ttcHint').hidden = mode !== 'ttc';
-  document.querySelectorAll('#lines .p').forEach(i => i.setAttribute('aria-label', 'Prix unitaire ' + mode.toUpperCase()));
+  priceLabels();
   document.querySelectorAll('#lines .line').forEach(showLinePrice);
   if (save) try { localStorage.setItem('devis_priceMode', mode); } catch(e){}
   calc();
 }
+// Libellés des colonnes et du total : HT / TTC, ou sans mention en franchise de TVA
+function priceLabels(){
+  const unit = isFranchise() ? '' : ' ' + priceMode().toUpperCase();
+  $('puHead').textContent = 'Prix unitaire' + unit;
+  $('totHead').textContent = 'Total' + unit;
+  $('ttcLabel').textContent = $('ttcBarLabel').textContent = isFranchise() ? 'Total' : 'Total TTC';
+  $('ttcHint').hidden = priceMode() !== 'ttc';
+  document.querySelectorAll('#lines .p').forEach(i => i.setAttribute('aria-label', 'Prix unitaire' + unit));
+}
+
+// Franchise en base de TVA (micro-entrepreneur) : TVA à 0 %, un seul total, sans HT ni TTC
+function applyFranchise(){
+  const on = $('eFranchise').checked, was = isFranchise();
+  document.body.classList.toggle('franchise', on);
+  if (on && $('tva').value !== '0') $('tva').value = '0';
+  // Retour à une entreprise qui facture la TVA : taux habituel
+  if (!on && was && $('tva').value === '0') $('tva').value = '20';
+  $('tva').disabled = on;
+  $('franchiseNote').hidden = !on;
+  document.querySelectorAll('#lines .line').forEach(showLinePrice);
+  priceLabels();
+  calc();
+}
+
 $('priceHT').onclick = () => setPriceMode('ht');
 $('priceTTC').onclick = () => setPriceMode('ttc');
 // Changement de TVA : en TTC, les prix TTC saisis restent les mêmes et le HT est recalculé
@@ -1089,7 +1121,11 @@ async function newQuote(){
 // Profils enregistrés (entreprises, clients) : une liste choisie via un menu,
 // dont les champs du formulaire modifient le profil sélectionné.
 // Sans connexion, la liste est gardée dans le navigateur ; une fois connecté, dans la table profils.
-function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy, defaults = {}}){
+// Valeur d'un champ de profil : texte, ou « 1 » / « » pour une case à cocher
+const fieldGet = f => $(f).type === 'checkbox' ? ($(f).checked ? '1' : '') : $(f).value;
+const fieldSet = (f, v) => { if ($(f).type === 'checkbox') $(f).checked = v === '1'; else $(f).value = v; };
+
+function profileManager({key, type, fields, select, addBtn, delBtn, defaultName, legacy, defaults = {}, onChange = () => {}}){
   let list = [], active = 0, remote = false;
   const timers = {};
   const empty = () => Object.assign({id: newId()}, Object.fromEntries(fields.map(f => [f, defaults[f] ?? ''])));
@@ -1133,15 +1169,17 @@ function profileManager({key, type, fields, select, addBtn, delBtn, defaultName,
     list.forEach((p, i) => $(select).add(new Option(label(p, i), i)));
     $(select).value = active;
     $(delBtn).disabled = list.length < 2;
-    fields.forEach(f => $(f).value = list[active][f] || '');
+    fields.forEach(f => fieldSet(f, list[active][f] || ''));
     storeActive();
+    onChange();
   }
 
   fields.forEach(f => $(f).addEventListener('input', () => {
     const p = list[active];
-    p[f] = $(f).value;
+    p[f] = fieldGet(f);
     save(p);
     if (f === fields[0]) $(select).options[active].text = label(p, active);
+    onChange();
   }));
 
   $(select).onchange = () => { active = parseInt($(select).value, 10); render(); };
@@ -1261,8 +1299,9 @@ function makePDF(d){
   doc.setTextColor(255).setFont('helvetica','bold');
   doc.text('Description', L + 2, y + 5.5);
   doc.text('Qté', 120, y + 5.5, {align:'right'});
-  doc.text('PU HT', 150, y + 5.5, {align:'right'});
-  doc.text('Total HT', R - 2, y + 5.5, {align:'right'});
+  const franchise = e.eFranchise === '1';
+  doc.text(franchise ? 'Prix unitaire' : 'PU HT', 150, y + 5.5, {align:'right'});
+  doc.text(franchise ? 'Total' : 'Total HT', R - 2, y + 5.5, {align:'right'});
   doc.setTextColor(0).setFont('helvetica','normal');
   y += 15;
 
@@ -1279,10 +1318,15 @@ function makePDF(d){
 
   if (y > 225){ doc.addPage(); y = 20; }
   y += 4;
-  doc.text('Total HT', 140, y); doc.text(fmt(d.total_ht), R - 2, y, {align:'right'});
-  doc.text('TVA (' + String(d.tva).replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(d.total_tva), R - 2, y + 6, {align:'right'});
-  doc.setFont('helvetica','bold').setFontSize(12);
-  doc.text('Total TTC', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
+  if (franchise){
+    doc.setFont('helvetica','bold').setFontSize(12);
+    doc.text('Total', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
+  } else {
+    doc.text('Total HT', 140, y); doc.text(fmt(d.total_ht), R - 2, y, {align:'right'});
+    doc.text('TVA (' + String(d.tva).replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(d.total_tva), R - 2, y + 6, {align:'right'});
+    doc.setFont('helvetica','bold').setFontSize(12);
+    doc.text('Total TTC', 140, y + 14); doc.text(fmt(d.total_ttc), R - 2, y + 14, {align:'right'});
+  }
 
   doc.setFont('helvetica','normal').setFontSize(9);
   const footer = [d.conditions, d.mentions, Number(d.tva) === 0 && 'TVA non applicable, art. 293 B du CGI.',
@@ -2159,7 +2203,7 @@ function showDevis(id){
   const billedLink = facture ? el('a', {href: '#', textContent: facture.numero, onclick: e => { e.preventDefault(); showFacture(facture.id); }}) : null;
   openPanel({type: 'devis', id: r.id}, 'Devis ' + r.numero,
     block(null, el('div', {className: 'pcust'}, avatar(r.client.cNom), r.client.cNom || 'Client sans nom'),
-      kv('Montant TTC', fmt(r.total_ttc)), kv('Montant HT', fmt(r.total_ht)),
+      ...(r.entreprise.eFranchise === '1' ? [kv('Montant', fmt(r.total_ttc))] : [kv('Montant TTC', fmt(r.total_ttc)), kv('Montant HT', fmt(r.total_ht))]),
       kv('Date', frDate(r.date_devis)), kv('Valable jusqu\'au', frDate(r.valide_jusqu) || '—'),
       kv('Statut', statut), ...(billedLink ? [kv('Facture', billedLink)] : []), actions),
     block('Prestations', ...lineList(r.lignes)),
@@ -2213,7 +2257,7 @@ function showFacture(id){
 
   openPanel({type: 'factures', id: f.id}, 'Facture ' + f.numero,
     block(null, el('div', {className: 'pcust'}, avatar(f.client.cNom), f.client.cNom || 'Client sans nom'),
-      kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht)),
+      ...(f.entreprise.eFranchise === '1' ? [kv('Montant', fmt(f.total_ttc))] : [kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht))]),
       kv('Date', frDate(f.date_facture)), kv('Échéance', frDate(f.echeance)),
       kv('Statut', badge(state, FACT_LABELS)), kv('Devis d\'origine', devisLink),
       kv(paid ? 'Payée le' : 'Date de paiement', payDate),
@@ -2603,7 +2647,8 @@ $('save').onclick = saveQuote;
 $('reset').onclick = () => { newQuote(); toast(''); };
 
 const entreprises = profileManager({key:'profiles', type:'entreprise',
-  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture'],
+  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture','eFranchise'],
+  onChange: applyFranchise,
   select:'profile', addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true,
   defaults: {eDelai: '30', eCondFacture: 'Paiement par virement à la date d\'échéance indiquée.'}});
 const clients = profileManager({key:'clients', type:'client', fields:['cNom','cEmail','cAdr','cSiren'],
