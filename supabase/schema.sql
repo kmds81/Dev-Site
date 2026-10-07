@@ -2,7 +2,7 @@
 -- À exécuter une fois dans Supabase : SQL Editor > New query > coller ce fichier > Run.
 -- Chaque utilisateur ne voit que ses propres données (Row Level Security).
 
--- Profils enregistrés : entreprises émettrices et clients.
+-- Profils enregistrés : entreprises émettrices, clients et prestations de la bibliothèque.
 create table if not exists public.profils (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
@@ -10,6 +10,10 @@ create table if not exists public.profils (
   donnees jsonb not null default '{}',
   created_at timestamptz not null default now()
 );
+-- Les profils servent aussi à la bibliothèque de prestations (type « prestation »).
+alter table public.profils drop constraint if exists profils_type_check;
+alter table public.profils add constraint profils_type_check
+  check (type in ('entreprise', 'client', 'prestation'));
 
 -- Devis. L'entreprise et le client sont copiés au moment de l'enregistrement,
 -- pour que le document reste identique même si le profil change ensuite.

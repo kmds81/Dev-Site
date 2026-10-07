@@ -220,6 +220,33 @@ details>:last-child{margin-bottom:14px}
 .stack{display:grid;gap:8px;margin-top:16px}
 .stack button{width:100%;height:36px}
 
+/* Bibliothèque de prestations */
+.line-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.lib-search{width:100%;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:28px;padding:0 10px;border-radius:999px;font-size:.8rem;box-shadow:none;gap:6px}
+.chip span{font-size:.7rem;color:var(--muted);background:var(--gray-soft);border-radius:8px;padding:0 5px;line-height:1.5}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.on span{background:rgba(255,255,255,.2);color:#fff}
+#libList{padding-top:6px;padding-bottom:6px}
+.libitem{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.libitem:last-of-type{border-bottom:0}
+.libitem label{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;margin:0;color:var(--ink);font-size:.86rem;font-weight:400;cursor:pointer;padding:4px 0}
+.libitem input[type=checkbox]{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;accent-color:var(--accent)}
+.libitem .txt{min-width:0}
+.libitem small{display:block;color:var(--muted);font-size:.74rem}
+.libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.libitem .tools{display:flex;opacity:.55}
+.libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
+.libitem .tools button{width:28px;height:28px}
+.libedit{flex:1;display:grid;gap:6px;padding:4px 0}
+.libedit-row{display:grid;grid-template-columns:1fr 90px auto auto;gap:6px}
+.lib-empty{padding:10px 0}
+.lib-examples{color:var(--accent);margin-top:6px;padding:0 4px;white-space:normal;height:auto;min-height:32px;text-align:left}
+/* Dans l'éditeur, le panneau passe par-dessus pour laisser toute la largeur aux lignes */
+body[data-route="editeur"] .panel{position:fixed;right:0;top:0;bottom:0;z-index:45;width:min(420px,100vw);box-shadow:-10px 0 30px rgba(17,24,39,.15)}
+.libfoot{position:sticky;bottom:0;display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);z-index:1}
+
 /* Tableau de bord */
 .dash-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}
 .chart svg{display:block;width:100%;height:220px}
@@ -681,7 +708,11 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        <div class="card-head"><div><h2>Prestations</h2><p>Une ligne par prestation ou fourniture.</p></div></div>
        <div class="line head"><span>Description</span><span>Qté</span><span>Prix unitaire HT</span><span style="text-align:right">Total HT</span><span></span></div>
        <div id="lines"></div>
-       <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
+       <div class="line-actions">
+        <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
+        <button id="libBtn"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg>Bibliothèque de prestations</button>
+       </div>
+       <datalist id="prestaSuggest"></datalist>
       </div>
 
       <div class="card" id="secConditions">
@@ -909,7 +940,7 @@ function addLine(d='', q=1, p=0){
   const row = document.createElement('div');
   row.className = 'line';
   row.innerHTML = `
-   <div class="desc"><input class="d" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
+   <div class="desc"><input class="d" list="prestaSuggest" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
    <div><input class="q" type="number" min="0" step="any" aria-label="Quantité"></div>
    <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire HT"></div>
    <div class="total">0,00 €</div>
@@ -918,6 +949,12 @@ function addLine(d='', q=1, p=0){
   row.querySelector('.q').value = q;
   row.querySelector('.p').value = p;
   row.querySelector('.del').onclick = () => removeLine(row);
+  // Description choisie dans les suggestions : reprend le prix habituel si aucun n'est saisi
+  row.querySelector('.d').addEventListener('change', () => {
+    const price = knownPrice(row.querySelector('.d').value);
+    const p = row.querySelector('.p');
+    if (price != null && !(parseFloat(p.value) > 0)){ p.value = price; calc(); }
+  });
   row.addEventListener('input', calc);
   $('lines').appendChild(row);
   calc();
@@ -1302,7 +1339,7 @@ async function onSession(session){
   if (user && LANDING[shown] && !resettingPassword){ go(wantedRoute || 'tableau-de-bord'); wantedRoute = null; }
   // Déconnecté depuis une page de l'application : retour à l'accueil
   if (!user && !LANDING[shown] && shown !== 'editeur') go('accueil');
-  await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user)]);
+  await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user), loadLibrary()]);
   if (user){
     refreshLists();
     if (!currentDevis) $('dNum').value = await nextNumber();
@@ -1702,7 +1739,9 @@ function renderAll(){
   $('navDevis').textContent = user && store.devis.length ? store.devis.length : '';
   $('navFact').textContent = user && store.factures.length ? store.factures.length : '';
   // Met à jour le panneau ouvert avec les données fraîches
-  if (panelState){
+  refreshSuggest();
+  if (panelState && panelState.type === 'biblio') renderLibList();
+  else if (panelState){
     const list = panelState.type === 'devis' ? store.devis : store.factures;
     const row = list.find(r => r.id === panelState.id);
     if (row) (panelState.type === 'devis' ? showDevis : showFacture)(row.id);
@@ -2124,6 +2163,276 @@ function showFacture(id){
     block('Historique', history));
 }
 
+// ---- Bibliothèque de prestations, classées par corps de métier ----
+
+const METIERS = ['Peinture', 'Plâtrerie', 'Maçonnerie', 'Démolition', 'Carrelage', 'Plomberie', 'Électricité', 'Menuiserie', 'Nettoyage', 'Autre'];
+// Exemples proposés pour démarrer (sans prix : chacun met les siens)
+const EXEMPLES = {
+  'Peinture': ['Protection des sols et du mobilier', 'Ponçage et dépoussiérage des enduits', 'Rebouchage et enduit de lissage',
+    'Application d\'une couche d\'impression', 'Application de deux couches de peinture murs (finition mate)',
+    'Application de deux couches de peinture plafonds', 'Peinture des boiseries (portes, plinthes) en deux couches'],
+  'Plâtrerie': ['Montage de cloison en plaques de plâtre', 'Doublage isolant des murs', 'Faux plafond en plaques de plâtre', 'Bandes et enduit des joints'],
+  'Maçonnerie': ['Démolition de la cuisine existante', 'Piochage du carrelage existant', 'Évacuation des gravats en déchetterie',
+    'Ouverture de mur avec pose d\'un linteau', 'Montage de cloison en carreaux de plâtre', 'Ragréage du sol'],
+  'Démolition': ['Dépose des équipements sanitaires', 'Démolition de cloison', 'Dépose du revêtement de sol', 'Évacuation des gravats en déchetterie'],
+  'Carrelage': ['Pose de carrelage au sol', 'Pose de faïence murale', 'Pose de plinthes carrelées', 'Joints et nettoyage de fin de chantier'],
+  'Plomberie': ['Fourniture et pose d\'un WC suspendu', 'Fourniture et pose d\'un meuble vasque', 'Remplacement du chauffe-eau', 'Création d\'une arrivée et d\'une évacuation d\'eau'],
+  'Électricité': ['Mise en conformité du tableau électrique', 'Fourniture et pose de prises de courant', 'Fourniture et pose de points lumineux', 'Création d\'un circuit spécialisé'],
+  'Menuiserie': ['Fourniture et pose de porte intérieure', 'Fourniture et pose de plinthes bois', 'Pose de parquet flottant'],
+  'Nettoyage': ['Nettoyage de fin de chantier']
+};
+
+let library = [];                          // [{id, metier, d, p}]
+const lib = {tab: null, selected: new Set()};
+const libKey = s => (s || '').trim().toLowerCase();
+
+function storeLocalLibrary(){
+  try { localStorage.setItem('devis_prestations', JSON.stringify(library)); } catch(e){}
+}
+function localLibrary(){
+  try { return JSON.parse(localStorage.getItem('devis_prestations')) || []; } catch(e){ return []; }
+}
+
+// Charge la bibliothèque : en ligne une fois connecté, sinon dans ce navigateur
+async function loadLibrary(){
+  if (!user){ library = localLibrary(); refreshSuggest(); return; }
+  const rows = await db(sb.from('profils').select('id, donnees').eq('type', 'prestation').order('created_at'), 'Lecture de la bibliothèque impossible');
+  if (!rows) return;
+  library = rows.map(r => Object.assign({metier: 'Autre', d: '', p: 0}, r.donnees, {id: r.id}));
+  // Premier usage du compte : envoie la bibliothèque de ce navigateur
+  const local = localLibrary();
+  if (!library.length && local.length) await addToLibrary(local.map(i => Object.assign({}, i, {id: newId()})), true);
+  refreshSuggest();
+}
+
+// Message clair si la base n'accepte pas encore les prestations (schéma pas relancé)
+function libraryError(error){
+  if (/profils_type_check|check constraint/i.test(error.message || '') || error.code === '23514')
+    toast('Pour enregistrer la bibliothèque en ligne, relancez supabase/schema.sql dans Supabase.', true);
+  else toast('Bibliothèque non enregistrée : ' + errorText(error), true);
+}
+
+async function addToLibrary(items, quiet){
+  if (!items.length) return true;
+  if (user){
+    const {error} = await sb.from('profils').insert(items.map(i => ({id: i.id, type: 'prestation', donnees: {metier: i.metier, d: i.d, p: i.p}})));
+    if (error){ libraryError(error); return false; }
+  }
+  library.push(...items);
+  if (!user) storeLocalLibrary();
+  refreshSuggest();
+  if (!quiet) toast(items.length === 1 ? 'Prestation enregistrée dans la bibliothèque.' : plural(items.length, 'prestation') + ' enregistrées dans la bibliothèque.');
+  return true;
+}
+async function updateLibraryItem(item, change){
+  const next = Object.assign({}, item, change);
+  if (user){
+    const {error} = await sb.from('profils').update({donnees: {metier: next.metier, d: next.d, p: next.p}}).eq('id', item.id);
+    if (error){ libraryError(error); return false; }
+  }
+  Object.assign(item, change);
+  if (!user) storeLocalLibrary();
+  refreshSuggest();
+  return true;
+}
+async function removeFromLibrary(item){
+  if (user){
+    const {error} = await sb.from('profils').delete().eq('id', item.id);
+    if (error){ libraryError(error); return; }
+  }
+  library = library.filter(i => i !== item);
+  lib.selected.delete('l:' + item.id);
+  if (!user) storeLocalLibrary();
+  refreshSuggest();
+  renderLibList();
+}
+
+// Historique : prestations des devis enregistrés, des plus utilisées aux moins utilisées (dernier prix)
+function frequentLines(){
+  const m = new Map();
+  [...store.devis].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')).forEach(r => (r.lignes || []).forEach(l => {
+    const k = libKey(l.d);
+    if (!k) return;
+    const e = m.get(k) || {d: l.d.trim(), p: 0, n: 0};
+    e.n++; e.p = Number(l.p) || e.p; e.d = l.d.trim();
+    m.set(k, e);
+  }));
+  return [...m.values()].sort((a, b) => b.n - a.n || a.d.localeCompare(b.d)).slice(0, 50);
+}
+
+// Prix habituel d'une description (bibliothèque d'abord, puis historique)
+function knownPrice(d){
+  const k = libKey(d);
+  if (!k) return null;
+  const item = library.find(i => libKey(i.d) === k);
+  if (item) return Number(item.p) || null;
+  const f = frequentLines().find(i => libKey(i.d) === k);
+  return f ? f.p || null : null;
+}
+
+// Suggestions proposées pendant la saisie d'une description
+function refreshSuggest(){
+  const seen = new Set(), opts = [];
+  [...library, ...frequentLines()].forEach(i => {
+    const k = libKey(i.d);
+    if (!k || seen.has(k)) return;
+    seen.add(k);
+    opts.push(el('option', {value: i.d, label: (i.metier ? i.metier + ' · ' : '') + (Number(i.p) ? fmt(i.p) + ' HT' : 'prix à définir')}));
+  });
+  $('prestaSuggest').replaceChildren(...opts);
+}
+
+// Métiers à afficher : ceux qui ont des prestations, puis la liste habituelle
+function libraryMetiers(){
+  const used = [...new Set(library.map(i => i.metier || 'Autre'))];
+  return [...used.filter(m => !METIERS.includes(m)).sort(), ...METIERS];
+}
+
+function openLibrary(){
+  if (!lib.tab) lib.tab = frequentLines().length && !library.length ? 'frequentes' : (library[0] && library[0].metier) || 'Peinture';
+  lib.selected.clear();
+  const metierList = el('datalist', {id: 'metierList'}, ...libraryMetiers().map(m => el('option', {value: m})));
+  const metier = el('input', {id: 'libMetier', placeholder: 'Ex. Peinture', value: lib.tab === 'frequentes' ? '' : lib.tab});
+  metier.setAttribute('list', 'metierList');
+  const desc = el('input', {id: 'libDesc', placeholder: 'Ex. Ponçage des enduits'});
+  const price = el('input', {id: 'libPrice', type: 'number', min: '0', step: '0.01', placeholder: '0,00'});
+  const metierOf = () => metier.value.trim() || 'Autre';
+  const lines = () => getLines().filter(l => l.d);
+
+  openPanel({type: 'biblio', id: 'biblio'}, 'Bibliothèque de prestations',
+    block(null,
+      el('div', {className: 'search lib-search'}, svgIcon('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+        el('input', {id: 'libSearch', type: 'search', placeholder: 'Rechercher une prestation…', ariaLabel: 'Rechercher une prestation', oninput: renderLibList})),
+      el('div', {className: 'chips', id: 'libChips', role: 'tablist'})),
+    el('div', {className: 'pblock', id: 'libList'}),
+    el('div', {className: 'libfoot'},
+      el('button', {id: 'libAll', onclick: toggleAllLibrary}, 'Tout sélectionner'),
+      el('button', {id: 'libAdd', className: 'primary', onclick: addSelectedToQuote})),
+    block('Ajouter à la bibliothèque', metierList,
+      el('div', {className: 'field'}, el('label', {htmlFor: 'libMetier', textContent: 'Corps de métier'}), metier),
+      el('div', {className: 'field'}, el('label', {htmlFor: 'libDesc', textContent: 'Prestation'}), desc),
+      el('div', {className: 'field'}, el('label', {htmlFor: 'libPrice', textContent: 'Prix unitaire HT habituel'}), price),
+      el('div', {className: 'pactions'},
+        el('button', {className: 'primary', textContent: 'Enregistrer la prestation', onclick: async () => {
+          if (!desc.value.trim()){ toast('Indiquez la prestation.', true); desc.focus(); return; }
+          if (await addToLibrary([{id: newId(), metier: metierOf(), d: desc.value.trim(), p: parseFloat(price.value) || 0}])){
+            lib.tab = metierOf(); desc.value = ''; price.value = ''; renderLibList();
+          }
+        }}),
+        el('button', {id: 'libSaveLines', textContent: 'Enregistrer les lignes de ce devis', onclick: async () => {
+          const known = new Set(library.map(i => libKey(i.d)));
+          const items = lines().filter(l => !known.has(libKey(l.d))).map(l => ({id: newId(), metier: metierOf(), d: l.d, p: l.p}));
+          if (!items.length){ toast('Les lignes de ce devis sont déjà toutes dans la bibliothèque.'); return; }
+          if (await addToLibrary(items)){ lib.tab = metierOf(); renderLibList(); }
+        }})),
+      el('p', {className: 'hint', textContent: 'Les lignes du devis sont classées dans le corps de métier indiqué ci-dessus.'})));
+  renderLibList();
+  $('libSearch').focus();
+}
+
+function visibleLibraryItems(){
+  const q = libKey($('libSearch') ? $('libSearch').value : '');
+  if (q) return [
+    ...library.filter(i => libKey(i.d).includes(q) || libKey(i.metier).includes(q)).map(i => ({key: 'l:' + i.id, d: i.d, p: i.p, item: i, sub: i.metier})),
+    ...frequentLines().filter(f => libKey(f.d).includes(q) && !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({key: 'f:' + libKey(f.d), d: f.d, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}))];
+  if (lib.tab === 'frequentes') return frequentLines().map(f => ({key: 'f:' + libKey(f.d), d: f.d, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}));
+  return library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, p: i.p, item: i}));
+}
+
+function renderLibList(){
+  if (!$('libList')) return;
+  const q = $('libSearch').value.trim();
+  // Onglets : prestations fréquentes, puis un onglet par corps de métier
+  const count = m => library.filter(i => (i.metier || 'Autre') === m).length;
+  const chip = (id, label, n) => {
+    const c = el('button', {className: 'chip' + (!q && lib.tab === id ? ' on' : ''), role: 'tab', onclick: () => { lib.tab = id; $('libSearch').value = ''; if (id !== 'frequentes') $('libMetier').value = id; renderLibList(); }}, label);
+    if (n) c.append(el('span', {textContent: String(n)}));
+    return c;
+  };
+  $('libChips').replaceChildren(chip('frequentes', 'Fréquentes', frequentLines().length), ...libraryMetiers().map(m => chip(m, m, count(m))));
+
+  const items = visibleLibraryItems(), list = $('libList');
+  list.replaceChildren();
+  items.forEach(it => {
+    const box = el('input', {type: 'checkbox', checked: lib.selected.has(it.key), onchange: () => { box.checked ? lib.selected.add(it.key) : lib.selected.delete(it.key); updateLibFoot(); }});
+    box.setAttribute('aria-label', it.d);
+    const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, it.sub ? el('small', {textContent: it.sub}) : '')),
+      el('span', {className: 'price', textContent: Number(it.p) ? fmt(it.p) : '—'}));
+    if (it.item){
+      row.append(el('span', {className: 'tools'},
+        el('button', {className: 'ghost icon', title: 'Modifier', ariaLabel: 'Modifier', onclick: () => editLibraryItem(row, it.item)}, svgIcon(ICONS.edit)),
+        el('button', {className: 'ghost icon del', title: 'Retirer de la bibliothèque', ariaLabel: 'Retirer de la bibliothèque', onclick: () => {
+          if (confirm('Retirer « ' + it.item.d + ' » de la bibliothèque ?')) removeFromLibrary(it.item);
+        }}, svgIcon('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'))));
+    } else if (it.freq){
+      row.append(el('span', {className: 'tools'},
+        el('button', {className: 'ghost icon', title: 'Enregistrer dans la bibliothèque', ariaLabel: 'Enregistrer dans la bibliothèque', onclick: async () => {
+          if (await addToLibrary([{id: newId(), metier: $('libMetier').value.trim() || 'Autre', d: it.d, p: it.p}])) renderLibList();
+        }}, svgIcon('<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9Z"/>'))));
+    }
+    list.append(row);
+  });
+
+  if (!items.length){
+    list.append(el('p', {className: 'hint lib-empty', textContent: q ? 'Aucune prestation ne correspond à la recherche.'
+      : lib.tab === 'frequentes' ? (user ? 'Les prestations de vos devis enregistrés apparaîtront ici, des plus utilisées aux moins utilisées.' : 'Connectez-vous et enregistrez vos devis : leurs prestations apparaîtront ici.')
+      : 'Aucune prestation en ' + lib.tab + ' pour l\'instant. Ajoutez les vôtres ci-dessous.'}));
+  }
+  // Exemples à charger pour le corps de métier affiché
+  const missing = !q && EXEMPLES[lib.tab] ? EXEMPLES[lib.tab].filter(d => !library.some(i => libKey(i.d) === libKey(d))) : [];
+  if (missing.length) list.append(el('button', {className: 'ghost lib-examples', onclick: async () => {
+    if (await addToLibrary(missing.map(d => ({id: newId(), metier: lib.tab, d, p: 0})))) renderLibList();
+  }}, '+ Ajouter ' + plural(missing.length, 'exemple') + ' de prestations en ' + lib.tab));
+  updateLibFoot();
+}
+
+function editLibraryItem(row, item){
+  const d = el('input', {value: item.d, ariaLabel: 'Prestation'});
+  const p = el('input', {type: 'number', min: '0', step: '0.01', value: item.p || '', ariaLabel: 'Prix unitaire HT'});
+  const m = el('input', {value: item.metier || '', ariaLabel: 'Corps de métier'});
+  m.setAttribute('list', 'metierList');
+  row.replaceChildren(el('div', {className: 'libedit'}, d, el('div', {className: 'libedit-row'}, m, p,
+    el('button', {className: 'primary', textContent: 'OK', onclick: async () => {
+      if (!d.value.trim()) return;
+      if (await updateLibraryItem(item, {d: d.value.trim(), p: parseFloat(p.value) || 0, metier: m.value.trim() || 'Autre'})){ lib.tab = item.metier; renderLibList(); }
+    }}),
+    el('button', {className: 'ghost', textContent: 'Annuler', onclick: renderLibList}))));
+  d.focus();
+}
+
+function updateLibFoot(){
+  const visible = visibleLibraryItems();
+  const n = [...lib.selected].length;
+  $('libAdd').textContent = n ? 'Ajouter au devis (' + n + ')' : 'Ajouter au devis';
+  $('libAdd').disabled = !n;
+  $('libAll').hidden = !visible.length;
+  $('libAll').textContent = visible.length && visible.every(it => lib.selected.has(it.key)) ? 'Tout désélectionner' : 'Tout sélectionner';
+}
+function toggleAllLibrary(){
+  const visible = visibleLibraryItems(), all = visible.every(it => lib.selected.has(it.key));
+  visible.forEach(it => all ? lib.selected.delete(it.key) : lib.selected.add(it.key));
+  renderLibList();
+}
+
+// Ajoute les prestations cochées au devis, dans l'ordre de la bibliothèque
+function addSelectedToQuote(){
+  const chosen = [];
+  const push = (k, d, p) => { if (lib.selected.has(k)) chosen.push({d, p: Number(p) || 0}); };
+  library.forEach(i => push('l:' + i.id, i.d, i.p));
+  frequentLines().forEach(f => push('f:' + libKey(f.d), f.d, f.p));
+  if (!chosen.length) return;
+  // Remplace la ligne vide d'un nouveau devis plutôt que de la laisser
+  getLines().filter(l => !l.d && !l.p).forEach(l => l.row.remove());
+  chosen.forEach(c => addLine(c.d, 1, c.p));
+  calc();
+  closePanel();
+  toast(plural(chosen.length, 'prestation') + ' ajoutée' + (chosen.length > 1 ? 's' : '') + ' au devis. Indiquez les quantités.');
+  const first = $('lines').lastElementChild && [...$('lines').children].at(-chosen.length);
+  if (first) first.querySelector('.q').focus();
+}
+
+$('libBtn').onclick = openLibrary;
+
 // ---- Export CSV (pour Excel, séparateur « ; ») ----
 
 function downloadCSV(name, header, rows){
@@ -2186,6 +2495,7 @@ const clients = profileManager({key:'clients', type:'client', fields:['cNom','cE
 loadSaved();
 newQuote();
 initSupabase();
+loadLibrary();
 showRoute();
 </script>
 </body>
