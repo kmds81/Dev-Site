@@ -35,7 +35,7 @@ create table if not exists public.devis (
 );
 
 -- Factures. Créées uniquement par convertir_devis_en_facture (numérotation
--- continue, sans trou) et non modifiables ensuite, sauf leur statut de paiement.
+-- continue, sans trou) et non modifiables ensuite, sauf leur statut et leur date de paiement.
 create table if not exists public.factures (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users on delete cascade,
@@ -56,6 +56,13 @@ create table if not exists public.factures (
   created_at timestamptz not null default now(),
   unique (user_id, numero)
 );
+
+-- Date de paiement (facultative), renseignée quand la facture est marquée payée.
+-- Ajoutée après coup : le script peut être relancé sur une base existante.
+alter table public.factures add column if not exists payee_le date;
+alter table public.factures drop constraint if exists factures_payee_le_check;
+alter table public.factures add constraint factures_payee_le_check
+  check (payee_le is null or (statut = 'payee' and payee_le >= date_facture));
 
 -- Dernier numéro de facture attribué, par utilisateur et par année.
 create table if not exists public.compteurs_factures (
@@ -97,9 +104,9 @@ create policy "statut factures" on public.factures for update to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Pas de création, de suppression ni de modification directe des factures
--- (seul le statut peut changer), ni d'accès direct aux compteurs.
+-- (seuls le statut et la date de paiement peuvent changer), ni d'accès direct aux compteurs.
 revoke insert, update, delete, truncate on public.factures from anon, authenticated;
-grant update (statut) on public.factures to authenticated;
+grant update (statut, payee_le) on public.factures to authenticated;
 revoke all on public.compteurs_factures from anon, authenticated;
 
 -- Transforme un devis en facture : attribue le numéro suivant (F-2026-001…),
