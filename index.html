@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur de devis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#1b2430;--muted:#5d6b7c;--line:#d5dbe3;--accent:#1f4fd8;--accent-ink:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.9rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 24px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
+h2{font-size:1.05rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+input,textarea,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;font:inherit;color:var(--ink);background:#fff}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.line{display:grid;grid-template-columns:1fr 80px 110px 100px 36px;gap:8px;align-items:end;margin-bottom:10px}
+.line .total{padding:9px 0;text-align:right;font-variant-numeric:tabular-nums}
+.head{font-size:.8rem;color:var(--muted);margin-bottom:6px}
+button{font:inherit;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 14px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.del{padding:9px 0;color:#b3261e}
+.totals{margin-left:auto;max-width:320px;font-variant-numeric:tabular-nums}
+.totals div{display:flex;justify-content:space-between;padding:4px 0}
+.totals .ttc{border-top:2px solid var(--ink);margin-top:6px;padding-top:10px;font-size:1.25rem;font-weight:700}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:640px){
+ .line{grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);padding-bottom:10px}
+ .line .desc{grid-column:1/-1}.head{display:none}
+}
+</style>
+</head>
+<body>
+<main>
+ <h1>Générateur de devis</h1>
+ <p class="sub">Remplissez les champs, vérifiez le total, puis téléchargez le PDF.</p>
+
+ <section>
+  <h2>Votre entreprise</h2>
+  <div class="grid">
+   <div><label for="eNom">Nom</label><input id="eNom"></div>
+   <div><label for="eSiret">SIRET</label><input id="eSiret"></div>
+   <div><label for="eEmail">Email</label><input id="eEmail" type="email"></div>
+   <div><label for="eTel">Téléphone</label><input id="eTel"></div>
+  </div>
+  <div style="margin-top:12px"><label for="eAdr">Adresse</label><textarea id="eAdr" rows="2"></textarea></div>
+ </section>
+
+ <section>
+  <h2>Client et devis</h2>
+  <div class="grid">
+   <div><label for="cNom">Nom du client</label><input id="cNom"></div>
+   <div><label for="cEmail">Email du client</label><input id="cEmail" type="email"></div>
+   <div><label for="dNum">N° de devis</label><input id="dNum"></div>
+   <div><label for="dDate">Date</label><input id="dDate" type="date"></div>
+   <div><label for="dValid">Valable jusqu'au</label><input id="dValid" type="date"></div>
+   <div><label for="tva">Taux de TVA</label>
+    <select id="tva"><option value="20">20 %</option><option value="10">10 %</option><option value="5.5">5,5 %</option><option value="0">0 % (non applicable)</option></select></div>
+  </div>
+  <div style="margin-top:12px"><label for="cAdr">Adresse du client</label><textarea id="cAdr" rows="2"></textarea></div>
+ </section>
+
+ <section>
+  <h2>Prestations</h2>
+  <div class="line head"><span>Description</span><span>Qté</span><span>Prix unitaire HT</span><span style="text-align:right">Total HT</span><span></span></div>
+  <div id="lines"></div>
+  <button id="add">Ajouter une ligne</button>
+ </section>
+
+ <section>
+  <div class="totals">
+   <div><span>Total HT</span><span id="ht">0,00 €</span></div>
+   <div><span>TVA</span><span id="tvaAmt">0,00 €</span></div>
+   <div class="ttc"><span>Total TTC</span><span id="ttc">0,00 €</span></div>
+  </div>
+  <div style="margin-top:14px"><label for="notes">Conditions (paiement, délais…)</label>
+   <textarea id="notes" rows="3">Paiement à 30 jours à réception de facture. Acompte de 30 % à la commande.</textarea></div>
+ </section>
+
+ <div class="actions">
+  <button id="reset">Nouveau devis</button>
+  <button id="pdf" class="primary">Télécharger en PDF</button>
+ </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/[\u202f\u00a0]/g,' ') + ' €';
+const SAVED = ['eNom','eSiret','eEmail','eTel','eAdr','notes'];
+
+function addLine(d='', q=1, p=0){
+  const row = document.createElement('div');
+  row.className = 'line';
+  row.innerHTML = `
+   <div class="desc"><input class="d" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
+   <div><input class="q" type="number" min="0" step="any" aria-label="Quantité"></div>
+   <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire HT"></div>
+   <div class="total">0,00 €</div>
+   <button class="del" title="Supprimer la ligne" aria-label="Supprimer la ligne">✕</button>`;
+  row.querySelector('.d').value = d;
+  row.querySelector('.q').value = q;
+  row.querySelector('.p').value = p;
+  row.querySelector('.del').onclick = () => { row.remove(); calc(); };
+  row.addEventListener('input', calc);
+  $('lines').appendChild(row);
+  calc();
+}
+
+function getLines(){
+  return [...document.querySelectorAll('#lines .line')].map(r => ({
+    d: r.querySelector('.d').value.trim(),
+    q: parseFloat(r.querySelector('.q').value) || 0,
+    p: parseFloat(r.querySelector('.p').value) || 0,
+    row: r
+  }));
+}
+
+function calc(){
+  let ht = 0;
+  getLines().forEach(l => {
+    const t = l.q * l.p;
+    ht += t;
+    l.row.querySelector('.total').textContent = fmt(t);
+  });
+  const tva = ht * parseFloat($('tva').value) / 100;
+  $('ht').textContent = fmt(ht);
+  $('tvaAmt').textContent = fmt(tva);
+  $('ttc').textContent = fmt(ht + tva);
+  return {ht, tva, ttc: ht + tva};
+}
+
+function nextNumber(){
+  const n = (parseInt(localStorage.getItem('devisCount')||'0',10) + 1);
+  return new Date().getFullYear() + '-' + String(n).padStart(3,'0');
+}
+
+function newQuote(){
+  $('lines').innerHTML = '';
+  ['cNom','cEmail','cAdr'].forEach(i => $(i).value = '');
+  const today = new Date(), valid = new Date(Date.now() + 30*864e5);
+  $('dDate').value = today.toISOString().slice(0,10);
+  $('dValid').value = valid.toISOString().slice(0,10);
+  $('dNum').value = nextNumber();
+  addLine();
+}
+
+function loadSaved(){
+  SAVED.forEach(i => { const v = localStorage.getItem('devis_'+i); if(v !== null) $(i).value = v; });
+}
+SAVED.forEach(i => $(i).addEventListener('input', () => localStorage.setItem('devis_'+i, $(i).value)));
+
+const frDate = s => s ? s.split('-').reverse().join('/') : '';
+
+function makePDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const L = 15, R = 195;
+  let y = 20;
+
+  doc.setFont('helvetica','bold').setFontSize(18).text($('eNom').value || 'Votre entreprise', L, y);
+  doc.setFont('helvetica','normal').setFontSize(10);
+  const emitter = [$('eAdr').value, $('eSiret').value && 'SIRET : ' + $('eSiret').value, $('eEmail').value, $('eTel').value].filter(Boolean).join('\n');
+  doc.text(doc.splitTextToSize(emitter, 90), L, y + 6);
+
+  doc.setFont('helvetica','bold').setFontSize(16).text('DEVIS ' + $('dNum').value, R, y, {align:'right'});
+  doc.setFont('helvetica','normal').setFontSize(10);
+  doc.text('Date : ' + frDate($('dDate').value), R, y + 7, {align:'right'});
+  doc.text('Valable jusqu\'au : ' + frDate($('dValid').value), R, y + 12, {align:'right'});
+
+  y = 62;
+  doc.setFont('helvetica','bold').text('Client', 120, y);
+  doc.setFont('helvetica','normal');
+  const client = [$('cNom').value, $('cAdr').value, $('cEmail').value].filter(Boolean).join('\n');
+  doc.text(doc.splitTextToSize(client, 75), 120, y + 5);
+
+  y = 95;
+  doc.setFillColor(31,79,216).rect(L, y, R - L, 8, 'F');
+  doc.setTextColor(255).setFont('helvetica','bold');
+  doc.text('Description', L + 2, y + 5.5);
+  doc.text('Qté', 120, y + 5.5, {align:'right'});
+  doc.text('PU HT', 150, y + 5.5, {align:'right'});
+  doc.text('Total HT', R - 2, y + 5.5, {align:'right'});
+  doc.setTextColor(0).setFont('helvetica','normal');
+  y += 15;
+
+  getLines().filter(l => l.d || l.p).forEach(l => {
+    const lines = doc.splitTextToSize(l.d, 95);
+    if (y + lines.length * 5 > 265){ doc.addPage(); y = 20; }
+    doc.text(lines, L + 2, y);
+    doc.text(String(l.q).replace('.',','), 120, y, {align:'right'});
+    doc.text(fmt(l.p), 150, y, {align:'right'});
+    doc.text(fmt(l.q * l.p), R - 2, y, {align:'right'});
+    y += lines.length * 5 + 3;
+    doc.setDrawColor(213,219,227).line(L, y - 3, R, y - 3);
+  });
+
+  const t = calc();
+  if (y > 225){ doc.addPage(); y = 20; }
+  y += 4;
+  doc.text('Total HT', 140, y); doc.text(fmt(t.ht), R - 2, y, {align:'right'});
+  doc.text('TVA (' + $('tva').value.replace('.',',') + ' %)', 140, y + 6); doc.text(fmt(t.tva), R - 2, y + 6, {align:'right'});
+  doc.setFont('helvetica','bold').setFontSize(12);
+  doc.text('Total TTC', 140, y + 14); doc.text(fmt(t.ttc), R - 2, y + 14, {align:'right'});
+
+  doc.setFont('helvetica','normal').setFontSize(9);
+  doc.text(doc.splitTextToSize($('notes').value, R - L), L, y + 28);
+  doc.text('Bon pour accord — date et signature :', L, y + 50);
+
+  doc.save('devis-' + $('dNum').value + '.pdf');
+  const n = parseInt(localStorage.getItem('devisCount')||'0',10) + 1;
+  localStorage.setItem('devisCount', n);
+}
+
+$('add').onclick = () => addLine();
+$('tva').onchange = calc;
+$('pdf').onclick = makePDF;
+$('reset').onclick = newQuote;
+
+loadSaved();
+newQuote();
+</script>
+</body>
+</html>
