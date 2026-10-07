@@ -1299,7 +1299,7 @@ async function onSession(session){
   // Connecté depuis l'accueil ou la page de connexion : direction le tableau de bord
   // (on regarde la page affichée : sans adresse précise, elle dépend de la connexion)
   const shown = document.body.dataset.route;
-  if (user && LANDING[shown] && !resettingPassword) go('tableau-de-bord');
+  if (user && LANDING[shown] && !resettingPassword){ go(wantedRoute || 'tableau-de-bord'); wantedRoute = null; }
   // Déconnecté depuis une page de l'application : retour à l'accueil
   if (!user && !LANDING[shown] && shown !== 'editeur') go('accueil');
   await Promise.all([entreprises.useRemote(!!user), clients.useRemote(!!user)]);
@@ -1485,8 +1485,13 @@ const currentRoute = () => {
   const r = location.hash.replace(/^#\/?/, '');
   return ROUTES[r] || LANDING[r] ? r : user ? 'tableau-de-bord' : 'accueil';
 };
+// Pages réservées aux comptes : un visiteur non connecté est envoyé sur la présentation,
+// et retrouve la page demandée une fois connecté.
+const PRIVATE = ['tableau-de-bord', 'devis', 'factures', 'compte'];
+let wantedRoute = null;
 function showRoute(){
   const r = currentRoute();
+  if (!user && PRIVATE.includes(r)){ wantedRoute = r; go('accueil'); return; }
   const landing = !!LANDING[r];
   document.body.classList.toggle('on-landing', landing);
   document.body.dataset.route = r;
