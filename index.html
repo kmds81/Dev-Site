@@ -241,6 +241,7 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .popover p{margin:0 0 10px;font-size:.84rem;font-weight:500}
 .popover .actions{margin-top:10px}
 .line.head{font-size:.7rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+.line select.u,.libedit-row select.u,#libUnit{padding-left:6px;padding-right:2px}
 .line .total{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
 .line button.del{width:32px;padding:0;border-color:transparent;box-shadow:none;background:transparent}
 #lines .line{animation:fadeIn .2s ease-out}
@@ -753,7 +754,6 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        </div>
        <datalist id="prestaSuggest"></datalist>
        <datalist id="metierSuggest"></datalist>
-       <datalist id="unitList"><option value="u">unité</option><option value="m²"><option value="ml">mètre linéaire</option><option value="m³"><option value="h">heure</option><option value="jour"><option value="forfait"><option value="kg"><option value="lot"><option value="ens.">ensemble</option></datalist>
       </div>
 
       <div class="card" id="secConditions">
@@ -982,20 +982,43 @@ function el(tag, props = {}, ...children){
   return e;
 }
 
+// Unité d'une ligne : menu des unités courantes, « Autre… » pour en saisir une autre.
+// Une unité absente de la liste (saisie avant, ou venant de la bibliothèque) y est ajoutée.
+const UNITS = ['u', 'm²', 'ml', 'm³', 'h', 'jour', 'forfait', 'kg', 'lot', 'ens.'];
+function setUnit(s, v){
+  v = (v || '').trim();
+  if (v && ![...s.options].some(o => o.value === v)) s.add(new Option(v, v), s.options[s.options.length - 1]);
+  s.value = v;
+  s.dataset.prev = v;
+}
+function unitSelect(value = '', attrs = {}){
+  const s = el('select', Object.assign({className: 'u', ariaLabel: 'Unité', title: 'Unité'}, attrs));
+  s.add(new Option('—', ''));
+  UNITS.forEach(v => s.add(new Option(v, v)));
+  s.add(new Option('Autre…', '__autre'));
+  setUnit(s, value);
+  s.addEventListener('change', () => {
+    if (s.value !== '__autre'){ s.dataset.prev = s.value; return; }
+    setUnit(s, (prompt('Unité (ex. pièce, L, m²) :') || '').trim() || s.dataset.prev);
+    s.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+  return s;
+}
+
 function addLine(d='', q=1, p=0, u=''){
   const row = document.createElement('div');
   row.className = 'line';
   row.innerHTML = `
    <div class="desc"><input class="d" list="prestaSuggest" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
    <div><input class="q" type="number" min="0" step="any" aria-label="Quantité"></div>
-   <div><input class="u" list="unitList" placeholder="u" aria-label="Unité"></div>
+   <div class="ucell"></div>
    <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire"></div>
    <div class="total">0,00 €</div>
    <button class="lib" title="Enregistrer dans la bibliothèque" aria-label="Enregistrer dans la bibliothèque"><svg class="i" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg></button>
    <button class="del" title="Supprimer la ligne" aria-label="Supprimer la ligne">✕</button>`;
   row.querySelector('.d').value = d;
   row.querySelector('.q').value = q;
-  row.querySelector('.u').value = u || '';
+  row.querySelector('.ucell').append(unitSelect(u));
   setLinePrice(row, p);
   row.querySelector('.del').onclick = () => removeLine(row);
   row.querySelector('.lib').onclick = e => saveLineToLibrary(row, e.currentTarget);
@@ -1010,7 +1033,7 @@ function addLine(d='', q=1, p=0, u=''){
     const known = knownItem(row.querySelector('.d').value);
     if (!known) return;
     if (known.p && !(parseFloat(row.dataset.ht) > 0)){ setLinePrice(row, known.p); calc(); }
-    if (known.u && !row.querySelector('.u').value) row.querySelector('.u').value = known.u;
+    if (known.u && !row.querySelector('.u').value) setUnit(row.querySelector('.u'), known.u);
   });
   row.addEventListener('input', calc);
   $('lines').appendChild(row);
@@ -2621,8 +2644,7 @@ function openLibrary(){
   metier.setAttribute('list', 'metierList');
   const desc = el('input', {id: 'libDesc', placeholder: 'Ex. Ponçage des enduits'});
   const price = el('input', {id: 'libPrice', type: 'number', min: '0', step: '0.01', placeholder: '0,00'});
-  const unit = el('input', {id: 'libUnit', placeholder: 'm², ml, u, forfait…'});
-  unit.setAttribute('list', 'unitList');
+  const unit = unitSelect('', {id: 'libUnit'});
   const metierOf = () => metier.value.trim() || 'Autre';
   const lines = () => getLines().filter(l => l.d);
 
@@ -2645,7 +2667,7 @@ function openLibrary(){
         el('button', {className: 'primary', textContent: 'Enregistrer la prestation', onclick: async () => {
           if (!desc.value.trim()){ toast('Indiquez la prestation.', true); desc.focus(); return; }
           if (await addToLibrary([{id: newId(), metier: metierOf(), d: desc.value.trim(), u: unit.value.trim(), p: parseFloat(price.value) || 0}])){
-            lib.tab = metierOf(); desc.value = ''; price.value = ''; unit.value = ''; renderLibList();
+            lib.tab = metierOf(); desc.value = ''; price.value = ''; setUnit(unit, ''); renderLibList();
           }
         }}),
         el('button', {id: 'libSaveLines', textContent: 'Enregistrer les lignes de ce devis', onclick: async () => {
@@ -2720,8 +2742,7 @@ function editLibraryItem(row, item){
   const p = el('input', {type: 'number', min: '0', step: '0.01', value: item.p || '', ariaLabel: 'Prix unitaire HT'});
   const m = el('input', {value: item.metier || '', ariaLabel: 'Corps de métier'});
   m.setAttribute('list', 'metierList');
-  const u = el('input', {value: item.u || '', ariaLabel: 'Unité', placeholder: 'Unité'});
-  u.setAttribute('list', 'unitList');
+  const u = unitSelect(item.u);
   row.replaceChildren(el('div', {className: 'libedit'}, d, el('div', {className: 'libedit-row'}, m, p, u,
     el('button', {className: 'primary', textContent: 'OK', onclick: async () => {
       if (!d.value.trim()) return;
