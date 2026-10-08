@@ -164,3 +164,94 @@ $$;
 
 revoke execute on function public.convertir_devis_en_facture(uuid, date, date) from public, anon;
 grant execute on function public.convertir_devis_en_facture(uuid, date, date) to authenticated;
+
+-- ---- Avoirs ----
+-- Un avoir annule tout ou partie d'une facture émise. Il est enregistré dans la table
+-- factures (type « avoir »), relié à sa facture, avec sa propre numérotation continue
+-- (AV-2026-001…), et, comme une facture, il ne peut être ni modifié ni supprimé.
+alter table public.factures add column if not exists type text not null default 'facture';
+alter table public.factures drop constraint if exists factures_type_check;
+alter table public.factures add constraint factures_type_check check (type in ('facture', 'avoir'));
+alter table public.factures add column if not exists avoir_de uuid references public.factures on delete restrict;
+alter table public.factures add column if not exists motif text;
+
+create table if not exists public.compteurs_avoirs (
+  user_id uuid not null references auth.users on delete cascade,
+  annee int not null,
+  dernier int not null,
+  primary key (user_id, annee)
+);
+alter table public.compteurs_avoirs enable row level security;
+revoke all on public.compteurs_avoirs from anon, authenticated;
+
+-- Crée un avoir sur une facture. Les montants sont recalculés ici à partir des lignes
+-- (quantité × prix unitaire HT) et du taux de TVA de la facture ; le total des avoirs
+-- ne peut pas dépasser le montant de la facture.
+create or replace function public.creer_avoir(
+  p_facture_id uuid,
+  p_lignes jsonb,
+  p_motif text default '',
+  p_date date default current_date
+) returns public.factures
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  f public.factures;
+  a public.factures;
+  v_annee int := extract(year from p_date)::int;
+  n int;
+  l jsonb;
+  ht numeric := 0;
+  v_tva numeric;
+  ttc numeric;
+  deja numeric;
+begin
+  if uid is null then
+    raise exception 'Connexion requise';
+  end if;
+  select * into f from public.factures where id = p_facture_id and user_id = uid for update;
+  if not found or f.type <> 'facture' then
+    raise exception 'Facture introuvable';
+  end if;
+  if p_date < f.date_facture then
+    raise exception 'L''avoir ne peut pas être daté avant la facture';
+  end if;
+  if jsonb_typeof(p_lignes) <> 'array' or jsonb_array_length(p_lignes) = 0 then
+    raise exception 'L''avoir doit contenir au moins une ligne';
+  end if;
+  for l in select * from jsonb_array_elements(p_lignes) loop
+    if (l->>'q') is null or (l->>'p') is null or (l->>'q')::numeric <= 0 or (l->>'p')::numeric < 0 then
+      raise exception 'Ligne d''avoir invalide';
+    end if;
+    ht := ht + (l->>'q')::numeric * (l->>'p')::numeric;
+  end loop;
+  ht := round(ht, 2);
+  v_tva := round(ht * f.tva / 100, 2);
+  ttc := ht + v_tva;
+  if ht <= 0 then
+    raise exception 'Le montant de l''avoir doit être positif';
+  end if;
+  select coalesce(sum(total_ttc), 0) into deja from public.factures where avoir_de = f.id;
+  if ttc > f.total_ttc - deja + 0.01 then
+    raise exception 'L''avoir dépasse le montant restant de la facture';
+  end if;
+
+  insert into public.compteurs_avoirs as c (user_id, annee, dernier)
+  values (uid, v_annee, 1)
+  on conflict (user_id, annee) do update set dernier = c.dernier + 1
+  returning dernier into n;
+
+  insert into public.factures (user_id, type, avoir_de, devis_id, devis_numero, numero, date_facture, echeance,
+    entreprise, client, lignes, tva, notes, motif, total_ht, total_tva, total_ttc)
+  values (uid, 'avoir', f.id, f.devis_id, f.numero, 'AV-' || v_annee || '-' || lpad(n::text, 3, '0'), p_date, p_date,
+    f.entreprise, f.client, p_lignes, f.tva, coalesce(p_motif, ''), coalesce(p_motif, ''), ht, v_tva, ttc)
+  returning * into a;
+  return a;
+end;
+$$;
+
+revoke execute on function public.creer_avoir(uuid, jsonb, text, date) from public, anon;
+grant execute on function public.creer_avoir(uuid, jsonb, text, date) to authenticated;
