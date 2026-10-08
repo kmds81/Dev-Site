@@ -6,14 +6,18 @@
 //   en reprenant les prestations et les prix de la bibliothèque de l'utilisateur ;
 // - « reformuler » : réécrit les descriptions des lignes de façon professionnelle.
 //
-// Secrets à définir dans Supabase (Edge Functions > Secrets) :
-// - ANTHROPIC_API_KEY : clé de l'API Claude (console.anthropic.com) ;
-// - ANTHROPIC_MODEL (facultatif) : modèle à utiliser, Claude Haiku par défaut.
+// Secrets à définir dans Supabase (Edge Functions > Secrets), selon l'IA choisie :
+// - MISTRAL_API_KEY : clé de l'API Mistral (console.mistral.ai, offre gratuite « Experiment ») ;
+//   MISTRAL_MODEL (facultatif) : modèle, mistral-small-latest par défaut ;
+// - ou ANTHROPIC_API_KEY : clé de l'API Claude (console.anthropic.com, payante) ;
+//   ANTHROPIC_MODEL (facultatif) : modèle, Claude Haiku par défaut.
+// Si les deux clés sont présentes, Mistral est utilisée.
 // Chaque compte est limité à un nombre de demandes par jour (fonction ia_consommer de schema.sql).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-haiku-5-5';
+const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') || '';
+const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -90,16 +94,39 @@ orthographe corrigée, vocabulaire du métier, détail des travaux réellement m
 N'ajoute aucun travail qui n'est pas dans la description d'origine, ne mentionne ni quantité ni prix.
 Reste concis : une phrase, 200 caractères au plus. Garde le même numéro i pour chaque ligne.`;
 
-async function askClaude(system: string, tool: typeof TOOL_DEVIS | typeof TOOL_REFORMULER, content: string) {
+type Tool = typeof TOOL_DEVIS | typeof TOOL_REFORMULER;
+
+// Demande à l'IA de répondre en remplissant l'outil (réponse structurée en JSON)
+async function askMistral(system: string, tool: Tool, content: string) {
+  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + MISTRAL_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: Deno.env.get('MISTRAL_MODEL') || 'mistral-small-latest',
+      max_tokens: 4000,
+      temperature: 0.2,
+      messages: [{ role: 'system', content: system }, { role: 'user', content }],
+      tools: [{ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.input_schema } }],
+      tool_choice: 'any',
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error('IA ' + res.status + ' : ' + (data?.message || data?.error?.message || data?.detail || 'erreur inconnue'));
+  const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (!args) throw new Error('Réponse de l\'IA inattendue');
+  return typeof args === 'string' ? JSON.parse(args) : args;
+}
+
+async function askClaude(system: string, tool: Tool, content: string) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') || '',
+      'x-api-key': ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: Deno.env.get('ANTHROPIC_MODEL') || 'claude-haiku-5-5',
       max_tokens: 4000,
       system,
       tools: [tool],
@@ -114,10 +141,13 @@ async function askClaude(system: string, tool: typeof TOOL_DEVIS | typeof TOOL_R
   return out.input;
 }
 
+const askAI = (system: string, tool: Tool, content: string) =>
+  MISTRAL_KEY ? askMistral(system, tool, content) : askClaude(system, tool, content);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'Méthode non autorisée' });
-  if (!Deno.env.get('ANTHROPIC_API_KEY')) return reply(500, { error: 'Clé ANTHROPIC_API_KEY absente des secrets de la fonction' });
+  if (!MISTRAL_KEY && !ANTHROPIC_KEY) return reply(500, { error: 'Clé de l\'IA absente : ajoutez MISTRAL_API_KEY dans les secrets des Edge Functions' });
 
   // Utilisateur connecté obligatoire : le jeton de la page est vérifié auprès de Supabase
   const auth = req.headers.get('Authorization') || '';
@@ -148,7 +178,7 @@ Deno.serve(async (req) => {
 
   try {
     if (action === 'devis') {
-      const out = await askClaude(SYSTEM_DEVIS, TOOL_DEVIS,
+      const out = await askAI(SYSTEM_DEVIS, TOOL_DEVIS,
         'Bibliothèque de prestations (prix unitaires HT) :\n' + JSON.stringify(biblio) +
         '\n\nDescription du chantier :\n' + description);
       const lignes: Ligne[] = (Array.isArray(out.lignes) ? out.lignes : []).slice(0, 60).map((l: Record<string, unknown>) => ({
@@ -161,7 +191,7 @@ Deno.serve(async (req) => {
       return reply(200, { lignes, remarques: text(out.remarques, 2000) });
     }
 
-    const out = await askClaude(SYSTEM_REFORMULER, TOOL_REFORMULER, JSON.stringify(aReformuler.filter((l: { d: string }) => l.d)));
+    const out = await askAI(SYSTEM_REFORMULER, TOOL_REFORMULER, JSON.stringify(aReformuler.filter((l: { d: string }) => l.d)));
     const result: string[] = aReformuler.map((l: { d: string }) => l.d);
     for (const l of Array.isArray(out.lignes) ? out.lignes : []) {
       const i = Number(l.i), d = text(l.d, 300);
