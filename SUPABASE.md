@@ -94,7 +94,7 @@ fonctionner, sans la nouveauté (elle prévient quand c'est le cas).
 ## Assistant IA (facultatif)
 
 Le bouton **Assistant IA** de l'éditeur propose les lignes d'un devis à partir d'une description
-du chantier (avec les prix de la bibliothèque) et reformule les descriptions. L'IA est appelée par
+du chantier (en reprenant les prix de la bibliothèque) et reformule les descriptions. L'IA est appelée par
 une fonction Supabase, `assistant-devis`, qui garde la clé secrète : la page n'y a jamais accès.
 Chaque compte est limité à 30 demandes par jour.
 
@@ -111,14 +111,25 @@ L'IA utilisée par défaut est **Mistral** (entreprise française), avec son off
    exactement `assistant-devis`, remplacez le code d'exemple par tout le contenu de
    `supabase/functions/assistant-devis/index.ts`, puis **Deploy function**.
 
-C'est tout : le bouton fonctionne pour tous les comptes connectés. Si l'assistant répond
+C'est tout : le bouton fonctionne pour tous les comptes connectés, avec votre clé (les autres
+utilisateurs n'ont pas besoin de compte Mistral). Si l'assistant répond
 « Invalid JWT », ouvrez la fonction, onglet **Details**, et désactivez **Verify JWT** : la fonction
 vérifie elle-même que l'utilisateur est connecté.
 
 L'offre gratuite de Mistral limite le nombre de requêtes par minute, ce qui suffit pour un usage
 personnel. En contrepartie, les données envoyées peuvent servir à améliorer leurs modèles
-(voir les réglages de confidentialité de la console Mistral). Seules la description du chantier,
-la bibliothèque et les descriptions des lignes sont envoyées à l'IA, jamais les clients.
+(voir les réglages de confidentialité de la console Mistral). C'est pourquoi la page limite ce
+qu'elle envoie :
+- seules la description du chantier, les libellés de la bibliothèque et les descriptions des lignes
+  sont envoyés : jamais les fiches clients, les factures ni **les prix** (la page remet elle-même
+  vos prix sur les lignes reconnues) ;
+- avant l'envoi, le nom, l'adresse, l'email et le téléphone du client et de l'entreprise, ainsi que
+  tout email, numéro de téléphone ou adresse repéré dans le texte, sont remplacés par des repères
+  ([CLIENT], [ADRESSE]…), remis en clair dans la réponse ;
+- le bouton **Voir ce qui sera envoyé** affiche le texte exact transmis.
+
+Un nom qui n'est pas celui du client du devis (un voisin, un autre artisan) ne peut pas être
+reconnu à coup sûr : vérifiez l'aperçu en cas de doute.
 
 **Changer d'IA** : sans toucher au code, remplacez le secret.
 - Autre modèle Mistral : ajoutez `MISTRAL_MODEL` (par défaut `mistral-small-latest`).

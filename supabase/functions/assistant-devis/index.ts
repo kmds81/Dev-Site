@@ -3,7 +3,8 @@
 //
 // Deux actions :
 // - « devis » : propose les lignes d'un devis à partir de la description du chantier,
-//   en reprenant les prestations et les prix de la bibliothèque de l'utilisateur ;
+//   en reprenant les libellés de la bibliothèque de l'utilisateur. Les prix ne sont pas
+//   envoyés à l'IA : la page les remet elle-même sur les lignes reconnues ;
 // - « reformuler » : réécrit les descriptions des lignes de façon professionnelle.
 //
 // Secrets à définir dans Supabase (Edge Functions > Secrets), selon l'IA choisie :
@@ -12,6 +13,7 @@
 // - ou ANTHROPIC_API_KEY : clé de l'API Claude (console.anthropic.com, payante) ;
 //   ANTHROPIC_MODEL (facultatif) : modèle, Claude Haiku par défaut.
 // Si les deux clés sont présentes, Mistral est utilisée.
+// La page masque les données personnelles (client, adresses, emails, téléphones) avant l'envoi.
 // Chaque compte est limité à un nombre de demandes par jour (fonction ia_consommer de schema.sql).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -30,7 +32,7 @@ const reply = (status: number, body: unknown) =>
 const text = (v: unknown, max: number) => (typeof v === 'string' ? v : '').trim().slice(0, max);
 const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : Number(v) || 0);
 
-type Ligne = { d: string; q: number; u: string; p: number; bibliotheque: boolean };
+type Ligne = { d: string; q: number; u: string; bibliotheque: boolean };
 
 const TOOL_DEVIS = {
   name: 'remplir_devis',
@@ -46,10 +48,9 @@ const TOOL_DEVIS = {
             d: { type: 'string', description: 'Description de la prestation' },
             q: { type: 'number', description: 'Quantité' },
             u: { type: 'string', description: 'Unité : u, m², ml, m³, h, jour, forfait, kg, lot, ens. ou autre' },
-            p: { type: 'number', description: 'Prix unitaire HT de la bibliothèque, ou 0 si la prestation n\'y est pas' },
             bibliotheque: { type: 'boolean', description: 'true si la ligne reprend une prestation de la bibliothèque' },
           },
-          required: ['d', 'q', 'u', 'p', 'bibliotheque'],
+          required: ['d', 'q', 'u', 'bibliotheque'],
         },
       },
       remarques: { type: 'string', description: 'Calculs de quantités, hypothèses et points à vérifier, en quelques phrases' },
@@ -80,8 +81,9 @@ const TOOL_REFORMULER = {
 const SYSTEM_DEVIS = `Tu aides un artisan du bâtiment à rédiger un devis en français.
 À partir de la description du chantier, propose les lignes de prestations et de fournitures.
 Règles :
-- Utilise en priorité les prestations de la bibliothèque fournie : même libellé, même unité, même prix (bibliotheque = true).
-- Pour une prestation absente de la bibliothèque, rédige une description professionnelle et mets p = 0 : l'artisan fixera le prix. N'invente jamais de prix.
+- Utilise en priorité les prestations de la bibliothèque fournie : recopie exactement le libellé et l'unité (bibliotheque = true).
+- Pour une prestation absente de la bibliothèque, rédige une description professionnelle (bibliotheque = false). Ne donne aucun prix : l'artisan les fixe.
+- Les informations personnelles ont été remplacées par des repères entre crochets ([CLIENT], [ADRESSE]…) : recopie-les tels quels si besoin, sans les modifier.
 - Calcule les quantités à partir des dimensions données (ex. murs d'une pièce = périmètre × hauteur ; plafond = surface au sol). Arrondis à 2 décimales.
 - Si une quantité ne peut pas être déduite, mets 1 avec l'unité la plus logique et signale-le dans les remarques.
 - Respecte l'ordre logique du chantier (protection, dépose, préparation, travaux, finitions, nettoyage).
@@ -92,6 +94,7 @@ const SYSTEM_REFORMULER = `Tu aides un artisan du bâtiment à rédiger un devis
 Reformule chaque description de prestation pour qu'elle soit claire, précise et professionnelle :
 orthographe corrigée, vocabulaire du métier, détail des travaux réellement mentionnés.
 N'ajoute aucun travail qui n'est pas dans la description d'origine, ne mentionne ni quantité ni prix.
+Les repères entre crochets ([CLIENT], [ADRESSE]…) remplacent des informations personnelles : recopie-les tels quels.
 Reste concis : une phrase, 200 caractères au plus. Garde le même numéro i pour chaque ligne.`;
 
 type Tool = typeof TOOL_DEVIS | typeof TOOL_REFORMULER;
@@ -164,7 +167,7 @@ Deno.serve(async (req) => {
   // Demande vérifiée avant de compter une utilisation
   const description = text(body.texte, 4000);
   const biblio = (Array.isArray(body.bibliotheque) ? body.bibliotheque : []).slice(0, 400)
-    .map((i: Record<string, unknown>) => ({ metier: text(i.metier, 60), d: text(i.d, 300), u: text(i.u, 12), p: num(i.p) }))
+    .map((i: Record<string, unknown>) => ({ metier: text(i.metier, 60), d: text(i.d, 300), u: text(i.u, 12) }))
     .filter((i: { d: string }) => i.d);
   const aReformuler = (Array.isArray(body.lignes) ? body.lignes : []).slice(0, 100)
     .map((d: unknown, i: number) => ({ i, d: text(d, 500) }));
@@ -179,13 +182,12 @@ Deno.serve(async (req) => {
   try {
     if (action === 'devis') {
       const out = await askAI(SYSTEM_DEVIS, TOOL_DEVIS,
-        'Bibliothèque de prestations (prix unitaires HT) :\n' + JSON.stringify(biblio) +
+        'Bibliothèque de prestations :\n' + JSON.stringify(biblio) +
         '\n\nDescription du chantier :\n' + description);
       const lignes: Ligne[] = (Array.isArray(out.lignes) ? out.lignes : []).slice(0, 60).map((l: Record<string, unknown>) => ({
         d: text(l.d, 300),
         q: Math.min(Math.max(Math.round(num(l.q) * 100) / 100, 0), 1e6) || 1,
         u: text(l.u, 12),
-        p: Math.max(num(l.p), 0),
         bibliotheque: l.bibliotheque === true,
       })).filter((l: Ligne) => l.d);
       return reply(200, { lignes, remarques: text(out.remarques, 2000) });
