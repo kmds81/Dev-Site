@@ -140,6 +140,7 @@ table.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums
 .list tbody tr.selected{background:var(--selected);box-shadow:inset 3px 0 0 var(--accent)}
 .list .num{text-align:right}
 .list .mono{color:var(--muted)}
+.list td.neg{color:var(--violet)}
 .cust{display:inline-flex;align-items:center;gap:8px;font-weight:500}
 .av{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;color:#fff;font-size:.66rem;font-weight:700;flex:none}
 .empty{color:var(--muted);text-align:center;padding:48px 24px;margin:0}
@@ -153,6 +154,9 @@ table.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums
 .badge[data-v="accepte"],.badge[data-v="payee"]{background:var(--green-soft);color:var(--green)}
 .badge[data-v="refuse"],.badge[data-v="retard"]{background:var(--red-soft);color:var(--red)}
 .badge[data-v="facture"]{background:var(--blue-soft);color:var(--blue)}
+.badge[data-v="avoir"]{background:var(--violet-soft);color:var(--violet)}
+.badge[data-v="rembourse"]{background:var(--violet-soft);color:var(--violet);opacity:.8}
+.badge[data-v="annulee"]{background:var(--gray-soft);color:var(--muted);text-decoration:line-through}
 
 /* Panneau de détail */
 .panel{width:380px;border-left:1px solid var(--line);background:#fff;display:flex;flex-direction:column;min-height:0;animation:slideIn .18s ease-out}
@@ -180,6 +184,18 @@ table.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums
 .timeline .dot svg{width:11px;height:11px}
 .timeline .dot.ok{background:var(--green-soft);color:var(--green)}
 .timeline .dot.bad{background:var(--red-soft);color:var(--red)}
+.timeline .dot.avoir{background:var(--violet-soft);color:var(--violet)}
+.links{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.avmodes{display:grid;gap:12px;margin-bottom:6px}
+.avline{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)}
+.avline .check{flex:1;min-width:0}
+.avq{display:flex;align-items:center;gap:6px;flex:none}
+.avq input{width:72px}
+.avq small{color:var(--muted);font-size:.74rem;white-space:nowrap}
+.avfoot{align-items:center;flex-wrap:wrap}
+.avfoot>div{flex:1 0 100%;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+#avoirTotal{white-space:nowrap}
+#avoirTotal.bad,.hint.bad{color:var(--red)}
 .timeline small{display:block;color:var(--muted);font-size:.74rem}
 
 /* Cartes (éditeur, tableau de bord, réglages) */
@@ -206,7 +222,7 @@ details>:last-child{margin-bottom:14px}
 .editor .side{position:sticky;top:20px}
 .emitter{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
 .emitter>div{flex:1 1 240px}
-.line{display:grid;grid-template-columns:1fr 70px 110px 100px 32px 32px;gap:8px;align-items:center;margin-bottom:8px}
+.line{display:grid;grid-template-columns:1fr 64px 78px 104px 96px 32px 32px;gap:8px;align-items:center;margin-bottom:8px}
 .line button.lib{width:32px;padding:0;border-color:transparent;box-shadow:none;background:transparent;color:var(--faint)}
 .line button.lib:hover{color:var(--accent);background:var(--accent-soft)}
 .line button.lib.saved{color:var(--accent)}
@@ -257,7 +273,8 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
 .libitem .tools button{width:28px;height:28px}
 .libedit{flex:1;display:grid;gap:6px;padding:4px 0}
-.libedit-row{display:grid;grid-template-columns:1fr 90px auto auto;gap:6px}
+.libedit-row{display:grid;grid-template-columns:1fr 80px 70px auto auto;gap:6px}
+.lib-pu{margin-top:12px;grid-template-columns:1fr 110px}
 .lib-empty{padding:10px 0}
 .lib-examples{color:var(--accent);margin-top:6px;padding:0 4px;white-space:normal;height:auto;min-height:32px;text-align:left}
 /* Dans l'éditeur, le panneau passe par-dessus pour laisser toute la largeur aux lignes */
@@ -333,9 +350,10 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
 @media(max-width:560px){
  .kpis{grid-template-columns:minmax(0,1fr)}
  .kpi{border-left:0;padding-left:0}
- .line{grid-template-columns:1fr 1fr 32px 32px;padding:10px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px}
+ .line{grid-template-columns:1fr 1fr 1fr;padding:10px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px}
  .line .desc{grid-column:1/-1}
- .line .total{grid-column:1/3;text-align:left;color:var(--muted)}
+ .line .total{text-align:left;color:var(--muted)}
+ .line button.lib,.line button.del{justify-self:end}
  .line.head{display:none}
 }
 /* ---- Page d'accueil et connexion ---- */
@@ -727,7 +745,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
         <div class="seg-wrap"><span id="segLabel">Prix saisis en</span><div class="seg" role="group" aria-labelledby="segLabel">
          <button id="priceHT" aria-pressed="true">HT</button><button id="priceTTC" aria-pressed="false">TTC</button></div></div></div>
        <p class="hint ttc-hint" id="ttcHint" hidden>Saisissez les prix TTC : le prix HT est calculé selon le taux de TVA. Le devis et la facture restent présentés en HT, avec la TVA et le total TTC.</p>
-       <div class="line head"><span>Description</span><span>Qté</span><span id="puHead">Prix unitaire HT</span><span id="totHead" style="text-align:right">Total HT</span><span></span><span></span></div>
+       <div class="line head"><span>Description</span><span>Qté</span><span>Unité</span><span id="puHead">Prix unitaire HT</span><span id="totHead" style="text-align:right">Total HT</span><span></span><span></span></div>
        <div id="lines"></div>
        <div class="line-actions">
         <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
@@ -735,6 +753,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        </div>
        <datalist id="prestaSuggest"></datalist>
        <datalist id="metierSuggest"></datalist>
+       <datalist id="unitList"><option value="u">unité</option><option value="m²"><option value="ml">mètre linéaire</option><option value="m³"><option value="h">heure</option><option value="jour"><option value="forfait"><option value="kg"><option value="lot"><option value="ens.">ensemble</option></datalist>
       </div>
 
       <div class="card" id="secConditions">
@@ -802,7 +821,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
      <div id="factListPane">
       <div class="toolbar">
        <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="factSearch" placeholder="Rechercher une facture, un client…" aria-label="Rechercher une facture"></div>
-       <select id="factFilter" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option value="emise">À payer</option><option value="retard">En retard</option><option value="payee">Payée</option></select>
+       <select id="factFilter" aria-label="Filtrer par statut"><option value="">Tous les statuts</option><option value="emise">À payer</option><option value="retard">En retard</option><option value="payee">Payée</option><option value="annulee">Annulée</option><option value="avoirs">Avoirs</option></select>
       </div>
       <div class="kpis" id="factKpis"></div>
       <div class="tablewrap"><table class="list" id="factTable" hidden>
@@ -962,18 +981,20 @@ function el(tag, props = {}, ...children){
   return e;
 }
 
-function addLine(d='', q=1, p=0){
+function addLine(d='', q=1, p=0, u=''){
   const row = document.createElement('div');
   row.className = 'line';
   row.innerHTML = `
    <div class="desc"><input class="d" list="prestaSuggest" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
    <div><input class="q" type="number" min="0" step="any" aria-label="Quantité"></div>
+   <div><input class="u" list="unitList" placeholder="u" aria-label="Unité"></div>
    <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire"></div>
    <div class="total">0,00 €</div>
    <button class="lib" title="Enregistrer dans la bibliothèque" aria-label="Enregistrer dans la bibliothèque"><svg class="i" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></svg></button>
    <button class="del" title="Supprimer la ligne" aria-label="Supprimer la ligne">✕</button>`;
   row.querySelector('.d').value = d;
   row.querySelector('.q').value = q;
+  row.querySelector('.u').value = u || '';
   setLinePrice(row, p);
   row.querySelector('.del').onclick = () => removeLine(row);
   row.querySelector('.lib').onclick = e => saveLineToLibrary(row, e.currentTarget);
@@ -985,8 +1006,10 @@ function addLine(d='', q=1, p=0){
   row.querySelector('.d').addEventListener('input', () => markSaved(row));
   // Description choisie dans les suggestions : reprend le prix habituel si aucun n'est saisi
   row.querySelector('.d').addEventListener('change', () => {
-    const price = knownPrice(row.querySelector('.d').value);
-    if (price != null && !(parseFloat(row.dataset.ht) > 0)){ setLinePrice(row, price); calc(); }
+    const known = knownItem(row.querySelector('.d').value);
+    if (!known) return;
+    if (known.p && !(parseFloat(row.dataset.ht) > 0)){ setLinePrice(row, known.p); calc(); }
+    if (known.u && !row.querySelector('.u').value) row.querySelector('.u').value = known.u;
   });
   row.addEventListener('input', calc);
   $('lines').appendChild(row);
@@ -1062,6 +1085,7 @@ function getLines(){
   return [...document.querySelectorAll('#lines .line')].map(r => ({
     d: r.querySelector('.d').value.trim(),
     q: parseFloat(r.querySelector('.q').value) || 0,
+    u: r.querySelector('.u').value.trim(),
     p: Math.round((parseFloat(r.dataset.ht) || 0) * 1e6) / 1e6,
     row: r
   }));
@@ -1252,7 +1276,7 @@ SAVED.forEach(i => $(i).addEventListener('input', () => localStorage.setItem('de
 
 // Données du devis affiché dans le formulaire, au format de la table devis.
 function formQuote(){
-  const lignes = getLines().filter(l => l.d || l.p).map(({d, q, p}) => ({d, q, p}));
+  const lignes = getLines().filter(l => l.d || l.p).map(({d, q, u, p}) => u ? {d, q, u, p} : {d, q, p});
   const tva = parseFloat($('tva').value);
   const t = totals(lignes, tva);
   return {
@@ -1309,7 +1333,7 @@ function makePDF(d){
     const lines = doc.splitTextToSize(l.d, 95);
     if (y + lines.length * 5 > 265){ doc.addPage(); y = 20; }
     doc.text(lines, L + 2, y);
-    doc.text(String(l.q).replace('.',','), 120, y, {align:'right'});
+    doc.text(String(l.q).replace('.',',') + (l.u ? ' ' + l.u : ''), 120, y, {align:'right'});
     doc.text(fmt(l.p), 150, y, {align:'right'});
     doc.text(fmt(l.q * l.p), R - 2, y, {align:'right'});
     y += lines.length * 5 + 3;
@@ -1573,7 +1597,7 @@ async function openQuote(id){
   $('tva').value = String(Number(d.tva));
   $('notes').value = d.notes;
   $('lines').innerHTML = '';
-  d.lignes.forEach(l => addLine(l.d, l.q, l.p));
+  d.lignes.forEach(l => addLine(l.d, l.q, l.p, l.u));
   if (!d.lignes.length) addLine();
   calc();
   setCurrentDevis(d);
@@ -1712,9 +1736,23 @@ let panelState = null;
 
 const today = () => isoDate(new Date());
 const DEVIS_LABELS = {brouillon: 'Brouillon', envoye: 'Envoyé', accepte: 'Accepté', refuse: 'Refusé', facture: 'Facturé'};
-const FACT_LABELS = {emise: 'À payer', retard: 'En retard', payee: 'Payée'};
+const FACT_LABELS = {emise: 'À payer', retard: 'En retard', payee: 'Payée', annulee: 'Annulée', avoir: 'Avoir', rembourse: 'Avoir remboursé'};
+// Avoirs : enregistrés avec les factures (type « avoir »), reliés à leur facture par avoir_de
+const isAvoir = f => f.type === 'avoir';
+const invoicesOnly = () => store.factures.filter(f => !isAvoir(f));
+const avoirsOf = f => store.factures.filter(a => isAvoir(a) && a.avoir_de === f.id);
+// Reste dû TTC d'une facture, une fois ses avoirs déduits
+const remainingTTC = f => round2(Number(f.total_ttc) - avoirsOf(f).reduce((s, a) => s + Number(a.total_ttc), 0));
+const remainingHT = f => round2(Number(f.total_ht) - avoirsOf(f).reduce((s, a) => s + Number(a.total_ht), 0));
+// Montant compté dans le chiffre d'affaires : négatif pour un avoir
+const signed = (f, key = 'total_ttc') => (isAvoir(f) ? -1 : 1) * Number(f[key] || 0);
+const sumSigned = (rows, key) => rows.reduce((s, f) => s + signed(f, key), 0);
+const sumRemaining = rows => rows.reduce((s, f) => s + remainingTTC(f), 0);
+const amountText = f => (isAvoir(f) ? '− ' : '') + fmt(f.total_ttc);
 // Statut affiché d'une facture : « En retard » quand l'échéance est passée sans paiement
-const factState = f => f.statut === 'payee' ? 'payee' : f.echeance < today() ? 'retard' : 'emise';
+const factState = f => isAvoir(f) ? (f.statut === 'payee' ? 'rembourse' : 'avoir')
+  : avoirsOf(f).length && remainingTTC(f) <= 0.005 ? 'annulee'
+  : f.statut === 'payee' ? 'payee' : f.echeance < today() ? 'retard' : 'emise';
 const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
 
 function badge(kind, labels){
@@ -1747,7 +1785,8 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   alert: '<path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="9"/>',
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
-  download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'
+  download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>'
 };
 
 // Somme TTC d'une liste de lignes de la base
@@ -1845,7 +1884,7 @@ function renderAll(){
   // Met à jour le panneau ouvert avec les données fraîches
   refreshSuggest();
   if (panelState && panelState.type === 'biblio') renderLibList();
-  else if (panelState){
+  else if (panelState && panelState.type !== 'avoirForm'){
     const list = panelState.type === 'devis' ? store.devis : store.factures;
     const row = list.find(r => r.id === panelState.id);
     if (row) (panelState.type === 'devis' ? showDevis : showFacture)(row.id);
@@ -1869,7 +1908,7 @@ function filteredDevis(){
 }
 function filteredFactures(){
   const q = $('factSearch').value.trim().toLowerCase(), st = $('factFilter').value;
-  return store.factures.filter(f => (!st || factState(f) === st) && (!q || (f.numero + ' ' + (f.devis_numero || '') + ' ' + (f.client.cNom || '')).toLowerCase().includes(q)));
+  return store.factures.filter(f => (!st || (st === 'avoirs' ? isAvoir(f) : factState(f) === st)) && (!q || (f.numero + ' ' + (f.devis_numero || '') + ' ' + (f.client.cNom || '')).toLowerCase().includes(q)));
 }
 
 function renderDevis(){
@@ -1907,7 +1946,7 @@ function renderFactures(){
     const tr = el('tr', {onclick: () => showFacture(f.id)},
       el('td', {className: 'mono', textContent: f.numero}), el('td', {}, customer(f.client.cNom)),
       el('td', {className: 'hide-sm', textContent: frDate(f.date_facture)}), el('td', {className: 'hide-sm', textContent: frDate(f.echeance)}),
-      el('td', {}, badge(factState(f), FACT_LABELS)), el('td', {className: 'num', textContent: fmt(f.total_ttc)}));
+      el('td', {}, badge(factState(f), FACT_LABELS)), el('td', {className: 'num' + (isAvoir(f) ? ' neg' : ''), textContent: amountText(f)}));
     tr.dataset.id = f.id;
     tr.classList.toggle('selected', !!panelState && panelState.id === f.id);
     return tr;
@@ -1917,25 +1956,26 @@ function renderFactures(){
 
 // Délai moyen entre la date de facture et la date de paiement (factures payées datées)
 function paymentDelay(){
-  const dated = store.factures.filter(f => f.statut === 'payee' && f.payee_le);
+  const dated = invoicesOnly().filter(f => f.statut === 'payee' && f.payee_le);
   if (!dated.length) return '—';
   return plural(Math.round(dated.reduce((s, f) => s + daysBetween(f.date_facture, f.payee_le), 0) / dated.length), 'jour');
 }
 
 // Indicateurs communs aux factures et au tableau de bord
 function factureKpis(withQuotes){
-  const months = lastMonths(6), billed = byMonth(store.factures, 'date_facture', months);
+  // Facturé net des avoirs ; reste dû des factures en attente
+  const months = lastMonths(6), billed = byMonth(store.factures, 'date_facture', months, f => signed(f));
   const due = store.factures.filter(f => factState(f) === 'emise'), late = store.factures.filter(f => factState(f) === 'retard');
   const late30 = late.filter(f => daysBetween(f.echeance, today()) > 30);
-  const paid = store.factures.filter(f => f.statut === 'payee');
+  const paid = invoicesOnly().filter(f => f.statut === 'payee');
   const open = store.devis.filter(r => ['brouillon', 'envoye', 'accepte'].includes(r.statut));
   return [
     kpi('Facturé ce mois-ci', fmt(billed[5]), {delta: pctChange(billed[5], billed[4]), spark: billed}),
     withQuotes
       ? kpi('Devis en cours', fmt(sum(open)), {tag: plural(open.length, 'devis', 'devis'), spark: byMonth(store.devis, 'date_devis', months), color: '#7c3aed'})
       : kpi('Payées', fmt(sum(paid)), {tag: plural(paid.length, 'facture'), sub: ['Délai moyen de paiement', paymentDelay()]}),
-    kpi('À encaisser', fmt(sum(due) + sum(late)), {tag: plural(due.length + late.length, 'facture'), sub: ['Pas encore échues', fmt(sum(due))]}),
-    kpi('En retard', fmt(sum(late)), {tag: plural(late.length, 'facture'), sub: ['En retard de plus de 30 jours', fmt(sum(late30))]})
+    kpi('À encaisser', fmt(sumRemaining(due) + sumRemaining(late)), {tag: plural(due.length + late.length, 'facture'), sub: ['Pas encore échues', fmt(sumRemaining(due))]}),
+    kpi('En retard', fmt(sumRemaining(late)), {tag: plural(late.length, 'facture'), sub: ['En retard de plus de 30 jours', fmt(sumRemaining(late30))]})
   ];
 }
 
@@ -1943,7 +1983,7 @@ function renderDashboard(){
   const d = new Date();
   $('dashDate').textContent = d.toLocaleDateString('fr-FR', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
   $('dashKpis').replaceChildren(...factureKpis(true));
-  const months = lastMonths(12), values = byMonth(store.factures, 'date_facture', months);
+  const months = lastMonths(12), values = byMonth(store.factures, 'date_facture', months, f => signed(f));
   $('dashChart').innerHTML = barChart(months.map(monthLabel), values, months.length - 1, $('dashChart').clientWidth || 640);
   $('dashYear').textContent = fmt(values.reduce((a, b) => a + b, 0)) + ' sur 12 mois';
 
@@ -1952,19 +1992,19 @@ function renderDashboard(){
   $('dashRate').textContent = rate + ' %';
   $('dashRateBar').style.width = rate + '%';
   $('dashRateCount').textContent = billed + ' sur ' + total;
-  $('dashAvg').textContent = fmt(store.factures.length ? sum(store.factures) / store.factures.length : 0);
+  $('dashAvg').textContent = fmt(invoicesOnly().length ? sum(invoicesOnly()) / invoicesOnly().length : 0);
   const toBill = store.devis.filter(r => r.statut === 'accepte');
   $('dashToBill').textContent = toBill.length + ' · ' + fmt(sum(toBill));
   $('dashDelay').textContent = paymentDelay();
 
-  const due = store.factures.filter(f => f.statut !== 'payee').sort((a, b) => a.echeance.localeCompare(b.echeance)).slice(0, 6);
+  const due = store.factures.filter(f => ['emise', 'retard'].includes(factState(f))).sort((a, b) => a.echeance.localeCompare(b.echeance)).slice(0, 6);
   $('dashDueEmpty').hidden = due.length > 0;
   $('dashDue').replaceChildren(...due.map(f => {
     const late = factState(f) === 'retard', n = Math.abs(daysBetween(today(), f.echeance));
     return el('tr', {onclick: () => showFacture(f.id)},
       el('td', {className: 'mono', textContent: f.numero}), el('td', {}, customer(f.client.cNom)),
       el('td', {className: 'hide-sm', textContent: late ? 'Échue depuis ' + plural(n, 'jour') : n ? 'Dans ' + plural(n, 'jour') : 'Aujourd\'hui'}),
-      el('td', {}, badge(factState(f), FACT_LABELS)), el('td', {className: 'num', textContent: fmt(f.total_ttc)}));
+      el('td', {}, badge(factState(f), FACT_LABELS)), el('td', {className: 'num', textContent: fmt(remainingTTC(f))}));
   }));
 
   const quotes = store.devis.slice(0, 6);
@@ -1975,8 +2015,8 @@ function renderDashboard(){
     el('td', {}, badge(r.statut, DEVIS_LABELS)), el('td', {className: 'num', textContent: fmt(r.total_ttc)}))));
 
   const byClient = {};
-  store.factures.forEach(f => { const n = f.client.cNom || '—'; byClient[n] = (byClient[n] || 0) + Number(f.total_ttc); });
-  const top = Object.entries(byClient).sort((a, b) => b[1] - a[1]).slice(0, 5), best = top.length ? top[0][1] : 1;
+  store.factures.forEach(f => { const n = f.client.cNom || '—'; byClient[n] = (byClient[n] || 0) + signed(f); });
+  const top = Object.entries(byClient).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5), best = top.length ? top[0][1] : 1;
   $('dashTopEmpty').hidden = top.length > 0;
   $('dashTop').replaceChildren(...top.map(([n, v]) => {
     const bar = el('span');
@@ -2051,9 +2091,12 @@ function previousRange(from, to){
 // Date qui place une facture dans une période : sa date de facture, ou sa date de paiement pour « Encaissé »
 const caDate = f => $('caBase').value === 'encaisse' ? f.payee_le : f.date_facture;
 
+// Factures et avoirs de la période. Les avoirs sont déduits à leur date ;
+// pour « Encaissé », seuls les avoirs remboursés, à leur date de remboursement.
 function caInvoices(from, to){
   const base = $('caBase').value;
-  return store.factures.filter(f => (base === 'emises' || f.statut === 'payee') && caDate(f) && caDate(f) >= from && caDate(f) <= to);
+  return store.factures.filter(f => (base === 'emises' || f.statut === 'payee' || (base === 'payees' && isAvoir(f)))
+    && caDate(f) && caDate(f) >= from && caDate(f) <= to);
 }
 
 function caData(){
@@ -2061,7 +2104,8 @@ function caData(){
   const inv = caInvoices(from, to);
   const buckets = caBuckets(from, to, group).map(b => {
     const rows = inv.filter(f => caDate(f) >= b.start && caDate(f) <= b.end);
-    return Object.assign(b, {count: rows.length, ht: sum(rows, 'total_ht'), tva: sum(rows, 'total_tva'), ttc: sum(rows)});
+    return Object.assign(b, {count: rows.filter(f => !isAvoir(f)).length, avoirs: rows.filter(isAvoir).length,
+      ht: sumSigned(rows, 'total_ht'), tva: sumSigned(rows, 'total_tva'), ttc: sumSigned(rows, 'total_ttc')});
   });
   return {from, to, group, inv, buckets, key: $('caAmount').value};
 }
@@ -2076,12 +2120,12 @@ function renderCA(){
     return;
   }
   const d = caData(), key = d.key, unit = key.toUpperCase();
-  const total = sum(d.buckets, key), tva = sum(d.buckets, 'tva'), count = d.inv.length;
-  const [pf, pt] = previousRange(from, to), prev = sum(caInvoices(pf, pt), key === 'ht' ? 'total_ht' : 'total_ttc');
+  const total = sum(d.buckets, key), tva = sum(d.buckets, 'tva'), count = d.inv.filter(f => !isAvoir(f)).length, nAvoirs = d.inv.length - count;
+  const [pf, pt] = previousRange(from, to), prev = sumSigned(caInvoices(pf, pt), key === 'ht' ? 'total_ht' : 'total_ttc');
   const best = d.buckets.reduce((a, b) => b[key] > a[key] ? b : a, d.buckets[0]);
   $('caKpis').replaceChildren(
     kpi('Chiffre d\'affaires ' + unit, fmt(total), {delta: pctChange(total, prev), sub: ['Période précédente (' + frDate(pf) + ' – ' + frDate(pt) + ')', fmt(prev)]}),
-    kpi('Factures', String(count), {sub: ['Montant moyen ' + unit, fmt(count ? total / count : 0)]}),
+    kpi('Factures', String(count), {tag: nAvoirs ? plural(nAvoirs, 'avoir') + ' déduit' + (nAvoirs > 1 ? 's' : '') : null, sub: ['Montant moyen ' + unit, fmt(count ? total / count : 0)]}),
     kpi('TVA collectée', fmt(tva), {sub: ['Montant TTC', fmt(sum(d.buckets, 'ttc'))]}),
     kpi('Meilleure période', best && best[key] ? best.label : '—', {sub: ['Chiffre d\'affaires ' + unit, fmt(best ? best[key] : 0)]}));
 
@@ -2093,28 +2137,29 @@ function renderCA(){
   $('caNote').textContent = base === 'encaisse'
     ? 'Chaque facture payée est comptée à sa date de paiement.' + (undated ? ' ' + plural(undated, 'facture payée') + ' sans date de paiement ' + (undated > 1 ? 'ne sont' : 'n\'est') + ' pas comptée' + (undated > 1 ? 's' : '') + ' : renseignez la date dans le détail de la facture.' : '')
     : 'Chaque facture est comptée à sa date de facture.' + (base === 'payees' ? ' Choisissez « Encaissé » pour compter les factures à leur date de paiement.' : '');
+  if (store.factures.some(isAvoir)) $('caNote').textContent += ' Les avoirs sont déduits' + (base === 'encaisse' ? ' à leur date de remboursement.' : ' à leur date.');
   $('caChart').innerHTML = barChart(d.buckets.map(b => b.short), d.buckets.map(b => b[key]), current, $('caChart').clientWidth || 640);
 
   $('caRows').replaceChildren(...d.buckets.map(b => {
     const share = el('span'), pct = total ? b[key] / total * 100 : 0;
     share.style.width = pct + '%';
     return el('tr', {},
-      el('td', {textContent: b.label}), el('td', {className: 'num', textContent: String(b.count)}),
+      el('td', {textContent: b.label}), el('td', {className: 'num', textContent: String(b.count) + (b.avoirs ? ' (+' + b.avoirs + ' av.)' : '')}),
       el('td', {className: 'num', textContent: fmt(b.ht)}), el('td', {className: 'num hide-sm', textContent: fmt(b.tva)}),
       el('td', {className: 'num', textContent: fmt(b.ttc)}),
       el('td', {className: 'num hide-sm'}, el('span', {className: 'share'}, share), Math.round(pct) + ' %'));
   }));
   $('caFoot').replaceChildren(el('tr', {},
-    el('td', {textContent: 'Total'}), el('td', {className: 'num', textContent: String(count)}),
+    el('td', {textContent: 'Total'}), el('td', {className: 'num', textContent: String(count) + (nAvoirs ? ' (+' + nAvoirs + ' av.)' : '')}),
     el('td', {className: 'num', textContent: fmt(sum(d.buckets, 'ht'))}), el('td', {className: 'num hide-sm', textContent: fmt(tva)}),
     el('td', {className: 'num', textContent: fmt(sum(d.buckets, 'ttc'))}), el('td', {className: 'num hide-sm', textContent: total ? '100 %' : '—'})));
 }
 
 function exportCA(){
   const d = caData();
-  downloadCSV('chiffre-affaires-' + d.from + '-' + d.to + '.csv', ['Période', 'Du', 'Au', 'Factures', 'Montant HT', 'TVA', 'Montant TTC'],
-    [...d.buckets.map(b => [b.label, frDate(b.start), frDate(b.end), b.count, csvNum(b.ht), csvNum(b.tva), csvNum(b.ttc)]),
-     ['Total', frDate(d.from), frDate(d.to), d.inv.length, csvNum(sum(d.buckets, 'ht')), csvNum(sum(d.buckets, 'tva')), csvNum(sum(d.buckets, 'ttc'))]]);
+  downloadCSV('chiffre-affaires-' + d.from + '-' + d.to + '.csv', ['Période', 'Du', 'Au', 'Factures', 'Avoirs', 'Montant HT', 'TVA', 'Montant TTC'],
+    [...d.buckets.map(b => [b.label, frDate(b.start), frDate(b.end), b.count, b.avoirs, csvNum(b.ht), csvNum(b.tva), csvNum(b.ttc)]),
+     ['Total', frDate(d.from), frDate(d.to), d.inv.filter(f => !isAvoir(f)).length, d.inv.filter(isAvoir).length, csvNum(sum(d.buckets, 'ht')), csvNum(sum(d.buckets, 'tva')), csvNum(sum(d.buckets, 'ttc'))]]);
 }
 
 function applyPreset(){
@@ -2167,7 +2212,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && panelState
 const kv = (label, value) => el('div', {className: 'kv'}, el('span', {textContent: label}), typeof value === 'string' ? el('strong', {textContent: value}) : value);
 const block = (title, ...children) => el('div', {className: 'pblock'}, ...(title ? [el('h4', {textContent: title})] : []), ...children);
 const lineList = lignes => lignes.length
-  ? lignes.map(l => el('div', {className: 'pline'}, el('span', {}, l.d || '—', el('small', {textContent: String(l.q).replace('.', ',') + ' × ' + fmt(l.p)})), el('strong', {textContent: fmt(l.q * l.p)})))
+  ? lignes.map(l => el('div', {className: 'pline'}, el('span', {}, l.d || '—', el('small', {textContent: String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '') + ' × ' + fmt(l.p)})), el('strong', {textContent: fmt(l.q * l.p)})))
   : [el('p', {className: 'hint', textContent: 'Aucune prestation.'})];
 const histEvent = (icon, kind, title, when) => el('li', {}, el('span', {className: 'dot ' + kind}, svgIcon(ICONS[icon])), title, el('small', {textContent: when}));
 const frDateTime = s => s ? new Date(s).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) : '';
@@ -2175,7 +2220,7 @@ const frDateTime = s => s ? new Date(s).toLocaleString('fr-FR', {dateStyle: 'sho
 function showDevis(id){
   const r = store.devis.find(x => x.id === id);
   if (!r) return;
-  const billed = r.statut === 'facture', facture = store.factures.find(f => f.devis_id === r.id);
+  const billed = r.statut === 'facture', facture = store.factures.find(f => f.devis_id === r.id && !isAvoir(f));
   let statut;
   if (billed) statut = badge('facture', DEVIS_LABELS);
   else {
@@ -2226,7 +2271,9 @@ async function setPayment(f, change){
 function showFacture(id){
   const f = store.factures.find(x => x.id === id);
   if (!f) return;
+  if (isAvoir(f)) return showAvoir(f);
   const state = factState(f), n = daysBetween(f.echeance, today()), paid = f.statut === 'payee';
+  const avoirs = avoirsOf(f), rest = remainingTTC(f), franchise = f.entreprise.eFranchise === '1';
   // Date de paiement facultative : aujourd'hui par défaut, jamais avant la date de facture
   const payDate = el('input', {type: 'date', id: 'payDate', value: paid ? (f.payee_le || '') : today(), min: f.date_facture, max: today()});
   payDate.setAttribute('aria-label', 'Date de paiement');
@@ -2245,31 +2292,184 @@ function showFacture(id){
     }});
   const devis = store.devis.find(r => r.id === f.devis_id);
   const devisLink = devis ? el('a', {href: '#', textContent: f.devis_numero, onclick: e => { e.preventDefault(); showDevis(devis.id); }}) : (f.devis_numero || '—');
+  const avoirLinks = el('span', {className: 'links'}, ...avoirs.map(a => el('a', {href: '#', textContent: a.numero, onclick: e => { e.preventDefault(); showFacture(a.id); }})));
 
   const history = el('ul', {className: 'timeline'});
   if (devis) history.append(histEvent('file', '', 'Devis ' + devis.numero + ' créé', frDateTime(devis.created_at)));
   history.append(histEvent('file', '', 'Facture émise', frDate(f.date_facture)));
-  if (paid) history.append(histEvent('check', 'ok', 'Facture payée', f.payee_le
+  avoirs.forEach(a => history.append(histEvent('undo', 'avoir', 'Avoir ' + a.numero + ' : − ' + fmt(a.total_ttc), frDate(a.date_facture) + (a.motif ? ' · ' + a.motif : ''))));
+  if (state === 'annulee') history.append(histEvent('undo', 'avoir', 'Facture entièrement annulée par avoir', ''));
+  else if (paid) history.append(histEvent('check', 'ok', 'Facture payée', f.payee_le
     ? frDate(f.payee_le) + ' · ' + (daysBetween(f.date_facture, f.payee_le) ? plural(daysBetween(f.date_facture, f.payee_le), 'jour') + ' après émission' : 'le jour de l\'émission')
     : 'Date de paiement non renseignée'));
   else if (state === 'retard') history.append(histEvent('alert', 'bad', 'En retard de ' + plural(n, 'jour'), 'Échéance du ' + frDate(f.echeance)));
   else history.append(histEvent('clock', '', n === 0 ? 'Échéance aujourd\'hui' : 'Échéance dans ' + plural(-n, 'jour'), frDate(f.echeance)));
 
+  const actions = el('div', {className: 'pactions'}, el('button', {onclick: () => invoicePDF(f)}, svgIcon(ICONS.download), 'Télécharger le PDF'));
+  if (state !== 'annulee') actions.append(toggle);
+  if (rest > 0.005) actions.append(el('button', {id: 'avoirBtn', onclick: () => openAvoirForm(f)}, svgIcon(ICONS.undo), 'Créer un avoir'));
+
   openPanel({type: 'factures', id: f.id}, 'Facture ' + f.numero,
     block(null, el('div', {className: 'pcust'}, avatar(f.client.cNom), f.client.cNom || 'Client sans nom'),
-      ...(f.entreprise.eFranchise === '1' ? [kv('Montant', fmt(f.total_ttc))] : [kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht))]),
+      ...(franchise ? [kv('Montant', fmt(f.total_ttc))] : [kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht))]),
+      ...(avoirs.length ? [kv('Avoirs', avoirLinks), kv('Reste dû' + (franchise ? '' : ' TTC'), fmt(rest))] : []),
       kv('Date', frDate(f.date_facture)), kv('Échéance', frDate(f.echeance)),
       kv('Statut', badge(state, FACT_LABELS)), kv('Devis d\'origine', devisLink),
-      kv(paid ? 'Payée le' : 'Date de paiement', payDate),
-      el('div', {className: 'pactions'},
-        el('button', {onclick: () => invoicePDF(f)}, svgIcon(ICONS.download), 'Télécharger le PDF'), toggle)),
+      ...(state === 'annulee' ? [] : [kv(paid ? 'Payée le' : 'Date de paiement', payDate)]),
+      actions),
     block('Prestations', ...lineList(f.lignes)),
     block('Historique', history));
+}
+
+// Détail d'un avoir : facture d'origine, motif, remboursement
+function showAvoir(a){
+  const f = store.factures.find(x => x.id === a.avoir_de), refunded = a.statut === 'payee';
+  const franchise = a.entreprise.eFranchise === '1';
+  const refundDate = el('input', {type: 'date', id: 'payDate', value: refunded ? (a.payee_le || '') : today(), min: a.date_facture, max: today()});
+  refundDate.setAttribute('aria-label', 'Date de remboursement');
+  refundDate.style.width = 'auto';
+  if (refunded) refundDate.onchange = async () => {
+    if (await setPayment(a, {payee_le: refundDate.value || null})) toast('Date de remboursement de l\'avoir ' + a.numero + ' enregistrée.');
+  };
+  const toggle = el('button', {
+    className: refunded ? '' : 'primary',
+    textContent: refunded ? 'Marquer non remboursé' : 'Marquer comme remboursé',
+    onclick: async () => {
+      const change = refunded ? {statut: 'emise', payee_le: null} : {statut: 'payee', payee_le: refundDate.value || null};
+      if (await setPayment(a, change)) toast('Avoir ' + a.numero + (refunded ? ' marqué non remboursé.' : ' marqué comme remboursé.'));
+    }});
+  const factLink = f ? el('a', {href: '#', textContent: f.numero, onclick: e => { e.preventDefault(); showFacture(f.id); }}) : (a.devis_numero || '—');
+  const history = el('ul', {className: 'timeline'});
+  if (f) history.append(histEvent('file', '', 'Facture ' + f.numero + ' émise', frDate(f.date_facture)));
+  history.append(histEvent('undo', 'avoir', 'Avoir émis', frDate(a.date_facture) + (a.motif ? ' · ' + a.motif : '')));
+  if (refunded) history.append(histEvent('check', 'ok', 'Avoir remboursé ou déduit', a.payee_le ? frDate(a.payee_le) : 'Date non renseignée'));
+
+  openPanel({type: 'factures', id: a.id}, 'Avoir ' + a.numero,
+    block(null, el('div', {className: 'pcust'}, avatar(a.client.cNom), a.client.cNom || 'Client sans nom'),
+      ...(franchise ? [kv('Montant', '− ' + fmt(a.total_ttc))] : [kv('Montant TTC', '− ' + fmt(a.total_ttc)), kv('Montant HT', '− ' + fmt(a.total_ht))]),
+      kv('Date', frDate(a.date_facture)), kv('Facture d\'origine', factLink),
+      ...(a.motif ? [kv('Motif', a.motif)] : []),
+      kv('Statut', badge(factState(a), FACT_LABELS)),
+      kv(refunded ? 'Remboursé le' : 'Date de remboursement', refundDate),
+      el('div', {className: 'pactions'}, el('button', {onclick: () => avoirPDF(a)}, svgIcon(ICONS.download), 'Télécharger le PDF'), toggle)),
+    block('Lignes de l\'avoir', ...lineList(a.lignes)),
+    block('Historique', history));
+}
+
+// Formulaire de création d'un avoir : annulation du reste dû, ou avoir partiel (lignes, remise)
+const MOTIFS = ['Erreur de facturation', 'Annulation de la commande', 'Geste commercial', 'Retour de marchandise', 'Prestation non réalisée', 'Remise accordée'];
+function openAvoirForm(f){
+  const rate = Number(f.tva) / 100, franchise = f.entreprise.eFranchise === '1', avoirs = avoirsOf(f);
+  const restHT = remainingHT(f), restTTC = remainingTTC(f);
+  const unit = franchise ? '' : ' HT';
+  const money = ht => franchise ? fmt(ht) : fmt(ht) + ' HT · ' + fmt(round2(ht) + round2(ht * rate)) + ' TTC';
+  const total = el('strong', {id: 'avoirTotal'});
+  const mode = {value: 'total'};
+  const radio = (v, label, hint) => {
+    const r = el('input', {type: 'radio', name: 'avoirMode', value: v, checked: v === 'total', onchange: () => { mode.value = v; partial.hidden = v !== 'partiel'; update(); }});
+    return el('label', {className: 'check'}, r, el('span', {}, el('strong', {textContent: label}), el('small', {className: 'hint', textContent: hint, style: 'display:block;margin:2px 0 0'})));
+  };
+
+  // Lignes de la facture : à cocher, quantité ajustable (au plus celle facturée)
+  const rows = f.lignes.map((l, i) => {
+    const box = el('input', {type: 'checkbox', onchange: update});
+    box.setAttribute('aria-label', l.d);
+    const q = el('input', {type: 'number', min: '0', max: String(l.q), step: 'any', value: String(l.q), oninput: () => { box.checked = parseFloat(q.value) > 0; update(); }});
+    q.setAttribute('aria-label', 'Quantité à créditer');
+    return {l, box, q, node: el('div', {className: 'avline'}, el('label', {className: 'check'}, box, el('span', {}, l.d || '—', el('small', {className: 'hint', textContent: fmt(l.p) + unit + (l.u ? ' / ' + l.u : ''), style: 'display:block;margin:0'}))),
+      el('span', {className: 'avq'}, q, el('small', {textContent: '/ ' + String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '')})))};
+  });
+  const remiseD = el('input', {id: 'avoirRemiseD', placeholder: 'Ex. Remise exceptionnelle', oninput: update});
+  const remiseP = el('input', {id: 'avoirRemiseP', type: 'number', min: '0', step: '0.01', placeholder: '0,00', oninput: update});
+  const partial = el('div', {id: 'avoirPartial', hidden: true},
+    el('p', {className: 'hint', textContent: 'Lignes de la facture à créditer :'}), ...rows.map(r => r.node),
+    el('div', {className: 'field'}, el('label', {htmlFor: 'avoirRemiseD', textContent: 'Remise ou geste commercial (facultatif)'}),
+      el('div', {className: 'grid lib-pu'}, remiseD, remiseP)));
+
+  const motif = el('input', {id: 'avoirMotif', placeholder: 'Ex. Erreur de facturation'});
+  motif.setAttribute('list', 'motifList');
+  const date = el('input', {type: 'date', id: 'avoirDate', value: today(), min: f.date_facture, max: today()});
+
+  function chosenLines(){
+    if (mode.value === 'total'){
+      // Sans avoir précédent : on reprend les lignes ; sinon une ligne pour le solde
+      return avoirs.length ? [{d: 'Annulation du solde de la facture ' + f.numero, q: 1, p: restHT}]
+        : f.lignes.map(l => Object.assign({}, l));
+    }
+    const out = rows.filter(r => r.box.checked && parseFloat(r.q.value) > 0)
+      .map(r => Object.assign({}, r.l, {q: Math.min(parseFloat(r.q.value), Number(r.l.q))}));
+    const rp = parseFloat(remiseP.value);
+    if (rp > 0) out.push({d: remiseD.value.trim() || 'Remise', q: 1, p: rp});
+    return out;
+  }
+  function update(){
+    const ht = round2(chosenLines().reduce((s, l) => s + l.q * l.p, 0));
+    total.textContent = money(ht);
+    const over = round2(ht) + round2(ht * rate) > restTTC + 0.01;
+    total.classList.toggle('bad', over);
+    $('avoirCreate').disabled = ht <= 0 || over;
+    $('avoirOver').hidden = !over;
+  }
+
+  openPanel({type: 'avoirForm', id: f.id}, 'Avoir sur ' + f.numero,
+    block(null,
+      el('p', {className: 'hint', style: 'margin:0 0 12px', textContent: 'Un avoir annule tout ou partie de la facture. Il est numéroté à part (AV-…), ne peut plus être modifié ni supprimé, et vient en déduction du chiffre d\'affaires.'}),
+      kv('Facture', fmt(f.total_ttc) + (franchise ? '' : ' TTC')),
+      ...(avoirs.length ? [kv('Déjà crédité', '− ' + fmt(Number(f.total_ttc) - restTTC))] : []),
+      kv('Reste à créditer', fmt(restTTC) + (franchise ? '' : ' TTC'))),
+    block('Montant',
+      el('div', {className: 'avmodes'},
+        radio('total', avoirs.length ? 'Annuler le solde de la facture' : 'Annuler toute la facture', 'L\'avoir reprend ' + (avoirs.length ? 'le reste à créditer' : 'toutes les lignes') + ' : ' + money(restHT) + '.'),
+        radio('partiel', 'Avoir partiel', 'Choisissez les lignes et quantités à créditer, ou une remise.')),
+      partial),
+    block('Informations',
+      el('datalist', {id: 'motifList'}, ...MOTIFS.map(m => el('option', {value: m}))),
+      el('div', {className: 'field', style: 'margin-top:0'}, el('label', {htmlFor: 'avoirMotif', textContent: 'Motif'}), motif),
+      el('div', {className: 'field'}, el('label', {htmlFor: 'avoirDate', textContent: 'Date de l\'avoir'}), date)),
+    el('div', {className: 'libfoot avfoot'},
+      el('div', {}, el('small', {className: 'hint', textContent: 'Montant de l\'avoir', style: 'display:block;margin:0'}), total,
+        el('small', {id: 'avoirOver', className: 'hint bad', hidden: true, textContent: 'Dépasse le reste à créditer.', style: 'display:block;margin:0'})),
+      el('button', {className: 'ghost', textContent: 'Annuler', onclick: () => showFacture(f.id)}),
+      el('button', {id: 'avoirCreate', className: 'primary', textContent: 'Créer l\'avoir', onclick: async () => {
+        const lignes = chosenLines();
+        if (!lignes.length) return;
+        if (!confirm('Créer l\'avoir sur la facture ' + f.numero + ' ?\nUn avoir émis ne peut plus être modifié ni supprimé.')) return;
+        let res = await sb.rpc('creer_avoir', {p_facture_id: f.id, p_lignes: lignes, p_motif: motif.value.trim(), p_date: date.value || today()});
+        if (res.error){
+          if (res.error.code === 'PGRST202' || /creer_avoir/.test(res.error.message || '')) toast('Pour créer des avoirs, relancez supabase/schema.sql dans Supabase.', true);
+          else toast('Avoir impossible : ' + errorText(res.error), true);
+          return;
+        }
+        const a = res.data;
+        avoirPDF(a, f);
+        toast('Avoir ' + a.numero + ' créé et téléchargé.');
+        await refreshLists();
+        showFacture(a.id);
+      }})));
+  update();
+}
+
+function avoirPDF(a, f){
+  f = f || store.factures.find(x => x.id === a.avoir_de);
+  const ref = 'Facture n° ' + (f ? f.numero + ' du ' + frDate(f.date_facture) : a.devis_numero);
+  makePDF(Object.assign({}, a, {
+    titre: 'AVOIR',
+    infos: ['Date : ' + frDate(a.date_facture), ref],
+    conditions: [a.motif && 'Motif : ' + a.motif, 'Avoir sur la ' + ref.charAt(0).toLowerCase() + ref.slice(1) + ', à déduire de cette facture ou à rembourser.'].filter(Boolean).join('\n'),
+    fichier: 'avoir-' + a.numero
+  }));
 }
 
 // ---- Bibliothèque de prestations, classées par corps de métier ----
 
 const METIERS = ['Peinture', 'Plâtrerie', 'Maçonnerie', 'Démolition', 'Carrelage', 'Plomberie', 'Électricité', 'Menuiserie', 'Nettoyage', 'Autre'];
+// Unité proposée pour un exemple, d'après son libellé
+function exampleUnit(d){
+  if (/^(Protection|Nettoyage|Évacuation|Dépose des équipements|Mise en conformité|Remplacement|Création d'un|Création d'une|Démolition de la cuisine|Ouverture de mur)/.test(d)) return 'forfait';
+  if (/^Fourniture et pose (d'un|d'une|de porte|de prises|de points)/.test(d)) return 'u';
+  if (/plinthes/i.test(d)) return 'ml';
+  return 'm²';
+}
 // Exemples proposés pour démarrer (sans prix : chacun met les siens)
 const EXEMPLES = {
   'Peinture': ['Protection des sols et du mobilier', 'Ponçage et dépoussiérage des enduits', 'Rebouchage et enduit de lissage',
@@ -2286,7 +2486,7 @@ const EXEMPLES = {
   'Nettoyage': ['Nettoyage de fin de chantier']
 };
 
-let library = [];                          // [{id, metier, d, p}]
+let library = [];                          // [{id, metier, d, u, p}]
 const lib = {tab: null, selected: new Set()};
 const libKey = s => (s || '').trim().toLowerCase();
 
@@ -2302,7 +2502,7 @@ async function loadLibrary(){
   if (!user){ library = localLibrary(); refreshSuggest(); return; }
   const rows = await db(sb.from('profils').select('id, donnees').eq('type', 'prestation').order('created_at'), 'Lecture de la bibliothèque impossible');
   if (!rows) return;
-  library = rows.map(r => Object.assign({metier: 'Autre', d: '', p: 0}, r.donnees, {id: r.id}));
+  library = rows.map(r => Object.assign({metier: 'Autre', d: '', u: '', p: 0}, r.donnees, {id: r.id}));
   // Premier usage du compte : envoie la bibliothèque de ce navigateur
   const local = localLibrary();
   if (!library.length && local.length) await addToLibrary(local.map(i => Object.assign({}, i, {id: newId()})), true);
@@ -2319,7 +2519,7 @@ function libraryError(error){
 async function addToLibrary(items, quiet){
   if (!items.length) return true;
   if (user){
-    const {error} = await sb.from('profils').insert(items.map(i => ({id: i.id, type: 'prestation', donnees: {metier: i.metier, d: i.d, p: i.p}})));
+    const {error} = await sb.from('profils').insert(items.map(i => ({id: i.id, type: 'prestation', donnees: {metier: i.metier, d: i.d, u: i.u || '', p: i.p}})));
     if (error){ libraryError(error); return false; }
   }
   library.push(...items);
@@ -2331,7 +2531,7 @@ async function addToLibrary(items, quiet){
 async function updateLibraryItem(item, change){
   const next = Object.assign({}, item, change);
   if (user){
-    const {error} = await sb.from('profils').update({donnees: {metier: next.metier, d: next.d, p: next.p}}).eq('id', item.id);
+    const {error} = await sb.from('profils').update({donnees: {metier: next.metier, d: next.d, u: next.u || '', p: next.p}}).eq('id', item.id);
     if (error){ libraryError(error); return false; }
   }
   Object.assign(item, change);
@@ -2357,21 +2557,19 @@ function frequentLines(){
   [...store.devis].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')).forEach(r => (r.lignes || []).forEach(l => {
     const k = libKey(l.d);
     if (!k) return;
-    const e = m.get(k) || {d: l.d.trim(), p: 0, n: 0};
-    e.n++; e.p = Number(l.p) || e.p; e.d = l.d.trim();
+    const e = m.get(k) || {d: l.d.trim(), p: 0, u: '', n: 0};
+    e.n++; e.p = Number(l.p) || e.p; e.u = l.u || e.u; e.d = l.d.trim();
     m.set(k, e);
   }));
   return [...m.values()].sort((a, b) => b.n - a.n || a.d.localeCompare(b.d)).slice(0, 50);
 }
 
-// Prix habituel d'une description (bibliothèque d'abord, puis historique)
-function knownPrice(d){
+// Prix et unité habituels d'une description (bibliothèque d'abord, puis historique)
+function knownItem(d){
   const k = libKey(d);
   if (!k) return null;
-  const item = library.find(i => libKey(i.d) === k);
-  if (item) return Number(item.p) || null;
-  const f = frequentLines().find(i => libKey(i.d) === k);
-  return f ? f.p || null : null;
+  const item = library.find(i => libKey(i.d) === k) || frequentLines().find(i => libKey(i.d) === k);
+  return item ? {p: Number(item.p) || 0, u: item.u || ''} : null;
 }
 
 // Suggestions proposées pendant la saisie d'une description
@@ -2381,7 +2579,7 @@ function refreshSuggest(){
     const k = libKey(i.d);
     if (!k || seen.has(k)) return;
     seen.add(k);
-    opts.push(el('option', {value: i.d, label: (i.metier ? i.metier + ' · ' : '') + (Number(i.p) ? fmt(i.p) + ' HT' : 'prix à définir')}));
+    opts.push(el('option', {value: i.d, label: (i.metier ? i.metier + ' · ' : '') + (Number(i.p) ? fmt(i.p) + ' HT' : 'prix à définir') + (i.u ? ' / ' + i.u : '')}));
   });
   $('prestaSuggest').replaceChildren(...opts);
   $('metierSuggest').replaceChildren(...libraryMetiers().map(m => el('option', {value: m})));
@@ -2402,6 +2600,8 @@ function openLibrary(){
   metier.setAttribute('list', 'metierList');
   const desc = el('input', {id: 'libDesc', placeholder: 'Ex. Ponçage des enduits'});
   const price = el('input', {id: 'libPrice', type: 'number', min: '0', step: '0.01', placeholder: '0,00'});
+  const unit = el('input', {id: 'libUnit', placeholder: 'm², ml, u, forfait…'});
+  unit.setAttribute('list', 'unitList');
   const metierOf = () => metier.value.trim() || 'Autre';
   const lines = () => getLines().filter(l => l.d);
 
@@ -2417,17 +2617,19 @@ function openLibrary(){
     block('Ajouter à la bibliothèque', metierList,
       el('div', {className: 'field'}, el('label', {htmlFor: 'libMetier', textContent: 'Corps de métier'}), metier),
       el('div', {className: 'field'}, el('label', {htmlFor: 'libDesc', textContent: 'Prestation'}), desc),
-      el('div', {className: 'field'}, el('label', {htmlFor: 'libPrice', textContent: 'Prix unitaire HT habituel'}), price),
+      el('div', {className: 'grid lib-pu'},
+        el('div', {}, el('label', {htmlFor: 'libPrice', textContent: 'Prix unitaire HT habituel'}), price),
+        el('div', {}, el('label', {htmlFor: 'libUnit', textContent: 'Unité'}), unit)),
       el('div', {className: 'pactions'},
         el('button', {className: 'primary', textContent: 'Enregistrer la prestation', onclick: async () => {
           if (!desc.value.trim()){ toast('Indiquez la prestation.', true); desc.focus(); return; }
-          if (await addToLibrary([{id: newId(), metier: metierOf(), d: desc.value.trim(), p: parseFloat(price.value) || 0}])){
-            lib.tab = metierOf(); desc.value = ''; price.value = ''; renderLibList();
+          if (await addToLibrary([{id: newId(), metier: metierOf(), d: desc.value.trim(), u: unit.value.trim(), p: parseFloat(price.value) || 0}])){
+            lib.tab = metierOf(); desc.value = ''; price.value = ''; unit.value = ''; renderLibList();
           }
         }}),
         el('button', {id: 'libSaveLines', textContent: 'Enregistrer les lignes de ce devis', onclick: async () => {
           const known = new Set(library.map(i => libKey(i.d)));
-          const items = lines().filter(l => !known.has(libKey(l.d))).map(l => ({id: newId(), metier: metierOf(), d: l.d, p: l.p}));
+          const items = lines().filter(l => !known.has(libKey(l.d))).map(l => ({id: newId(), metier: metierOf(), d: l.d, u: l.u, p: l.p}));
           if (!items.length){ toast('Les lignes de ce devis sont déjà toutes dans la bibliothèque.'); return; }
           if (await addToLibrary(items)){ lib.tab = metierOf(); renderLibList(); }
         }})),
@@ -2439,10 +2641,10 @@ function openLibrary(){
 function visibleLibraryItems(){
   const q = libKey($('libSearch') ? $('libSearch').value : '');
   if (q) return [
-    ...library.filter(i => libKey(i.d).includes(q) || libKey(i.metier).includes(q)).map(i => ({key: 'l:' + i.id, d: i.d, p: i.p, item: i, sub: i.metier})),
-    ...frequentLines().filter(f => libKey(f.d).includes(q) && !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({key: 'f:' + libKey(f.d), d: f.d, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}))];
-  if (lib.tab === 'frequentes') return frequentLines().map(f => ({key: 'f:' + libKey(f.d), d: f.d, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}));
-  return library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, p: i.p, item: i}));
+    ...library.filter(i => libKey(i.d).includes(q) || libKey(i.metier).includes(q)).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i, sub: i.metier})),
+    ...frequentLines().filter(f => libKey(f.d).includes(q) && !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}))];
+  if (lib.tab === 'frequentes') return frequentLines().map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}));
+  return library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i}));
 }
 
 function renderLibList(){
@@ -2463,7 +2665,7 @@ function renderLibList(){
     const box = el('input', {type: 'checkbox', checked: lib.selected.has(it.key), onchange: () => { box.checked ? lib.selected.add(it.key) : lib.selected.delete(it.key); updateLibFoot(); }});
     box.setAttribute('aria-label', it.d);
     const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, it.sub ? el('small', {textContent: it.sub}) : '')),
-      el('span', {className: 'price', textContent: Number(it.p) ? fmt(it.p) : '—'}));
+      el('span', {className: 'price', textContent: (Number(it.p) ? fmt(it.p) : '—') + (it.u ? ' / ' + it.u : '')}));
     if (it.item){
       row.append(el('span', {className: 'tools'},
         el('button', {className: 'ghost icon', title: 'Modifier', ariaLabel: 'Modifier', onclick: () => editLibraryItem(row, it.item)}, svgIcon(ICONS.edit)),
@@ -2473,7 +2675,7 @@ function renderLibList(){
     } else if (it.freq){
       row.append(el('span', {className: 'tools'},
         el('button', {className: 'ghost icon', title: 'Enregistrer dans la bibliothèque', ariaLabel: 'Enregistrer dans la bibliothèque', onclick: async () => {
-          if (await addToLibrary([{id: newId(), metier: $('libMetier').value.trim() || 'Autre', d: it.d, p: it.p}])) renderLibList();
+          if (await addToLibrary([{id: newId(), metier: $('libMetier').value.trim() || 'Autre', d: it.d, u: it.u || '', p: it.p}])) renderLibList();
         }}, svgIcon('<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9Z"/>'))));
     }
     list.append(row);
@@ -2487,7 +2689,7 @@ function renderLibList(){
   // Exemples à charger pour le corps de métier affiché
   const missing = !q && EXEMPLES[lib.tab] ? EXEMPLES[lib.tab].filter(d => !library.some(i => libKey(i.d) === libKey(d))) : [];
   if (missing.length) list.append(el('button', {className: 'ghost lib-examples', onclick: async () => {
-    if (await addToLibrary(missing.map(d => ({id: newId(), metier: lib.tab, d, p: 0})))) renderLibList();
+    if (await addToLibrary(missing.map(d => ({id: newId(), metier: lib.tab, d, u: exampleUnit(d), p: 0})))) renderLibList();
   }}, '+ Ajouter ' + plural(missing.length, 'exemple') + ' de prestations en ' + lib.tab));
   updateLibFoot();
 }
@@ -2497,10 +2699,12 @@ function editLibraryItem(row, item){
   const p = el('input', {type: 'number', min: '0', step: '0.01', value: item.p || '', ariaLabel: 'Prix unitaire HT'});
   const m = el('input', {value: item.metier || '', ariaLabel: 'Corps de métier'});
   m.setAttribute('list', 'metierList');
-  row.replaceChildren(el('div', {className: 'libedit'}, d, el('div', {className: 'libedit-row'}, m, p,
+  const u = el('input', {value: item.u || '', ariaLabel: 'Unité', placeholder: 'Unité'});
+  u.setAttribute('list', 'unitList');
+  row.replaceChildren(el('div', {className: 'libedit'}, d, el('div', {className: 'libedit-row'}, m, p, u,
     el('button', {className: 'primary', textContent: 'OK', onclick: async () => {
       if (!d.value.trim()) return;
-      if (await updateLibraryItem(item, {d: d.value.trim(), p: parseFloat(p.value) || 0, metier: m.value.trim() || 'Autre'})){ lib.tab = item.metier; renderLibList(); }
+      if (await updateLibraryItem(item, {d: d.value.trim(), p: parseFloat(p.value) || 0, u: u.value.trim(), metier: m.value.trim() || 'Autre'})){ lib.tab = item.metier; renderLibList(); }
     }}),
     el('button', {className: 'ghost', textContent: 'Annuler', onclick: renderLibList}))));
   d.focus();
@@ -2523,13 +2727,13 @@ function toggleAllLibrary(){
 // Ajoute les prestations cochées au devis, dans l'ordre de la bibliothèque
 function addSelectedToQuote(){
   const chosen = [];
-  const push = (k, d, p) => { if (lib.selected.has(k)) chosen.push({d, p: Number(p) || 0}); };
-  library.forEach(i => push('l:' + i.id, i.d, i.p));
-  frequentLines().forEach(f => push('f:' + libKey(f.d), f.d, f.p));
+  const push = (k, d, p, u) => { if (lib.selected.has(k)) chosen.push({d, p: Number(p) || 0, u: u || ''}); };
+  library.forEach(i => push('l:' + i.id, i.d, i.p, i.u));
+  frequentLines().forEach(f => push('f:' + libKey(f.d), f.d, f.p, f.u));
   if (!chosen.length) return;
   // Remplace la ligne vide d'un nouveau devis plutôt que de la laisser
   getLines().filter(l => !l.d && !l.p).forEach(l => l.row.remove());
-  chosen.forEach(c => addLine(c.d, 1, c.p));
+  chosen.forEach(c => addLine(c.d, 1, c.p, c.u));
   calc();
   closePanel();
   toast(plural(chosen.length, 'prestation') + ' ajoutée' + (chosen.length > 1 ? 's' : '') + ' au devis. Indiquez les quantités.');
@@ -2565,7 +2769,7 @@ function saveLineToLibrary(row, button){
   const save = async () => {
     const m = metier.value.trim() || 'Autre';
     const ht = parseFloat(row.dataset.ht) || 0;
-    if (await addToLibrary([{id: newId(), metier: m, d, p: Math.round(ht * 1e4) / 1e4}], true)){
+    if (await addToLibrary([{id: newId(), metier: m, d, u: row.querySelector('.u').value.trim(), p: Math.round(ht * 1e4) / 1e4}], true)){
       try { localStorage.setItem('devis_lastMetier', m); } catch(e){}
       toast('« ' + d + ' » enregistrée dans la bibliothèque (' + m + (ht ? ', ' + fmt(ht) + ' HT' : '') + ').');
       closePopover();
@@ -2611,8 +2815,10 @@ $('exportBtn').onclick = () => {
     ['N°', 'Client', 'Date', 'Valable jusqu\'au', 'Statut', 'Total HT', 'TVA', 'Total TTC'],
     filteredDevis().map(r => [r.numero, r.client.cNom, frDate(r.date_devis), frDate(r.valide_jusqu), DEVIS_LABELS[r.statut], csvNum(r.total_ht), csvNum(r.total_tva), csvNum(r.total_ttc)]));
   else downloadCSV('factures-' + today() + '.csv',
-    ['N°', 'Devis', 'Client', 'SIREN client', 'Date', 'Échéance', 'Statut', 'Payée le', 'Total HT', 'TVA', 'Total TTC'],
-    filteredFactures().map(f => [f.numero, f.devis_numero, f.client.cNom, f.client.cSiren, frDate(f.date_facture), frDate(f.echeance), FACT_LABELS[factState(f)], frDate(f.payee_le), csvNum(f.total_ht), csvNum(f.total_tva), csvNum(f.total_ttc)]));
+    ['N°', 'Devis', 'Client', 'SIREN client', 'Date', 'Échéance', 'Statut', 'Payée le', 'Total HT', 'TVA', 'Total TTC', 'Type', 'Facture d\'origine', 'Motif'],
+    filteredFactures().map(f => [f.numero, isAvoir(f) ? '' : f.devis_numero, f.client.cNom, f.client.cSiren, frDate(f.date_facture), isAvoir(f) ? '' : frDate(f.echeance),
+      FACT_LABELS[factState(f)], frDate(f.payee_le), csvNum(signed(f, 'total_ht')), csvNum(signed(f, 'total_tva')), csvNum(signed(f, 'total_ttc')),
+      isAvoir(f) ? 'Avoir' : 'Facture', isAvoir(f) ? f.devis_numero : '', f.motif || '']));
 };
 
 // ---- Effets ----
@@ -2639,9 +2845,11 @@ $('tva').onchange = onTvaChange;
 $('pdf').onclick = quotePDF;
 $('pdfBar').onclick = () => ($('invoicePdf').hidden ? $('pdf') : $('invoicePdf')).click();
 $('invoicePdf').onclick = async () => {
-  const f = await db(sb.from('factures').select('*').eq('devis_id', currentDevis.id).maybeSingle(), 'Lecture de la facture impossible');
-  if (f && f !== true) invoicePDF(f);
-  else if (f) toast('Facture introuvable pour ce devis.', true);
+  const rows = await db(sb.from('factures').select('*').eq('devis_id', currentDevis.id), 'Lecture de la facture impossible');
+  if (!rows) return;
+  const f = rows.find(r => !isAvoir(r));
+  if (f) invoicePDF(f);
+  else toast('Facture introuvable pour ce devis.', true);
 };
 $('save').onclick = saveQuote;
 $('reset').onclick = () => { newQuote(); toast(''); };
