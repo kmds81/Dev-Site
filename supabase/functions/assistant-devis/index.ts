@@ -8,18 +8,25 @@
 // - « reformuler » : réécrit les descriptions des lignes de façon professionnelle.
 //
 // Secrets à définir dans Supabase (Edge Functions > Secrets), selon l'IA choisie :
-// - MISTRAL_API_KEY : clé de l'API Mistral (console.mistral.ai, offre gratuite « Experiment ») ;
+// - GEMINI_API_KEY : clé de l'API Google Gemini (aistudio.google.com, offre gratuite) ;
+//   GEMINI_MODEL (facultatif) : modèle, gemini-flash-latest par défaut ;
+// - ou MISTRAL_API_KEY : clé de l'API Mistral (console.mistral.ai, abonnement requis) ;
 //   MISTRAL_MODEL (facultatif) : modèle, mistral-small-latest par défaut ;
-// - ou ANTHROPIC_API_KEY : clé de l'API Claude (console.anthropic.com, payante) ;
+// - ou ANTHROPIC_API_KEY : clé de l'API Claude (console.anthropic.com, payante à l'usage) ;
 //   ANTHROPIC_MODEL (facultatif) : modèle, Claude Haiku par défaut.
-// Si les deux clés sont présentes, Mistral est utilisée.
+// Si plusieurs clés sont présentes : Gemini, puis Mistral, puis Claude ; ou celle indiquée
+// par le secret AI_PROVIDER (gemini, mistral ou claude).
 // La page masque les données personnelles (client, adresses, emails, téléphones) avant l'envoi.
 // Chaque compte est limité à un nombre de demandes par jour (fonction ia_consommer de schema.sql).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') || '';
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') || '';
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
+const KEYS: Record<string, string> = { gemini: GEMINI_KEY, mistral: MISTRAL_KEY, claude: ANTHROPIC_KEY };
+const wanted = (Deno.env.get('AI_PROVIDER') || '').trim().toLowerCase();
+const PROVIDER = KEYS[wanted] ? wanted : ['gemini', 'mistral', 'claude'].find((p) => KEYS[p]) || '';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -161,13 +168,36 @@ async function askClaude(system: string, tool: Tool, content: string) {
   return out.input;
 }
 
+async function askGemini(system: string, tool: Tool, content: string) {
+  const model = Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest';
+  const res = await postAI('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+    method: 'POST',
+    headers: { 'x-goog-api-key': GEMINI_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: content }] }],
+      tools: [{ functionDeclarations: [{ name: tool.name, description: tool.description, parameters: tool.input_schema }] }],
+      toolConfig: { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: [tool.name] } },
+      generationConfig: { temperature: 0.2, maxOutputTokens: 8000 },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new AIError(res.status, 'IA ' + res.status + ' : ' + (data?.error?.message || 'erreur inconnue'));
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const call = parts.find((p: { functionCall?: unknown }) => p.functionCall)?.functionCall;
+  if (!call?.args) throw new Error('Réponse de l\'IA inattendue');
+  return call.args;
+}
+
 const askAI = (system: string, tool: Tool, content: string) =>
-  MISTRAL_KEY ? askMistral(system, tool, content) : askClaude(system, tool, content);
+  PROVIDER === 'gemini' ? askGemini(system, tool, content)
+    : PROVIDER === 'mistral' ? askMistral(system, tool, content)
+    : askClaude(system, tool, content);
 
 async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'Méthode non autorisée' });
-  if (!MISTRAL_KEY && !ANTHROPIC_KEY) return reply(500, { error: 'Clé de l\'IA absente : ajoutez MISTRAL_API_KEY dans les secrets des Edge Functions' });
+  if (!PROVIDER) return reply(500, { error: 'Clé de l\'IA absente : ajoutez GEMINI_API_KEY dans les secrets des Edge Functions' });
 
   // Utilisateur connecté obligatoire : le jeton de la page est vérifié auprès de Supabase
   const auth = req.headers.get('Authorization') || '';

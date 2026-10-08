@@ -2893,7 +2893,7 @@ function previewButton(id, box, request){
   return el('button', {id, className: 'ghost', textContent: 'Voir ce qui sera envoyé', onclick: () => {
     const req = request();
     if (!req) return;
-    box.replaceChildren(el('p', {className: 'hint', textContent: 'Texte exact transmis à l\'IA (Mistral). Les repères entre crochets remplacent les données personnelles ; ils sont remis à leur place dans la réponse.', style: 'margin-top:12px'}),
+    box.replaceChildren(el('p', {className: 'hint', textContent: 'Texte exact transmis à l\'IA. Les repères entre crochets remplacent les données personnelles ; ils sont remis à leur place dans la réponse.', style: 'margin-top:12px'}),
       el('pre', {className: 'ia-note ia-preview', textContent: previewText(req.body)}));
   }});
 }
