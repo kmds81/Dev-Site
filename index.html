@@ -269,6 +269,11 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .libitem input[type=checkbox]{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;accent-color:var(--accent)}
 .libitem .txt{min-width:0}
 .libitem small{display:block;color:var(--muted);font-size:.74rem}
+.ia-ex{font-size:.8rem;color:var(--muted);margin:6px 0 0}
+.ia-note{background:var(--gray-soft);border-radius:6px;padding:10px 12px;font-size:.82rem;color:var(--ink-2);white-space:pre-wrap;margin:10px 0 0}
+.ia-old{text-decoration:line-through;color:var(--muted)}
+.ia-preview{font:inherit;font-size:.78rem;max-height:260px;overflow:auto}
+.tag.warn{background:#fff4e5;color:#9a5b00}
 .libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 .libitem .tools{display:flex;opacity:.55}
 .libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
@@ -751,6 +756,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        <div class="line-actions">
         <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
         <button id="libBtn"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg>Bibliothèque de prestations</button>
+        <button id="iaBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>Assistant IA</button>
        </div>
        <datalist id="prestaSuggest"></datalist>
        <datalist id="metierSuggest"></datalist>
@@ -2784,6 +2790,197 @@ function addSelectedToQuote(){
 }
 
 $('libBtn').onclick = openLibrary;
+
+// ---- Assistant IA ----
+// Rédige les lignes à partir d'une description du chantier, ou reformule les descriptions.
+// L'IA est appelée par la fonction Supabase assistant-devis, qui garde la clé secrète.
+async function callAssistant(body){
+  if (!sb || !user){ toast('Connectez-vous pour utiliser l\'assistant.', true); return null; }
+  const {data, error} = await sb.functions.invoke('assistant-devis', {body});
+  if (!error) return data;
+  let status = error.context && error.context.status, info = {};
+  try { info = await error.context.json(); } catch(e){}
+  if (status === 404 || (!status && /fetch|relay/i.test(error.name || '')))
+    toast('L\'assistant IA n\'est pas encore installé sur la base : suivez la partie « Assistant IA » de SUPABASE.md.', true);
+  else if (info.code === 'PGRST202')
+    toast('Base pas à jour pour l\'assistant : relancez supabase/schema.sql dans Supabase.', true);
+  else toast(info.error || error.message || 'L\'assistant n\'a pas pu répondre.', true);
+  return null;
+}
+
+async function busy(btn, label, fn){
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = label;
+  try { await fn(); } finally { btn.disabled = false; btn.textContent = old; }
+}
+
+// Masque les données personnelles avant l'envoi à l'IA : client et entreprise du devis
+// (nom, adresse, email, téléphone, SIREN), puis tout email, téléphone ou adresse repéré dans le
+// texte. Chaque valeur devient un repère ([CLIENT], [ADRESSE 2]…) remis à sa place dans la réponse.
+const NOT_NAMES = new Set(['monsieur', 'madame', 'mademoiselle', 'mme', 'mlle', 'mr', 'famille', 'société', 'societe', 'entreprise',
+  'sarl', 'sas', 'sasu', 'eurl', 'sci', 'snc', 'les', 'des', 'et', 'chez']);
+function makeMasker(){
+  const tokens = new Map(), back = new Map(), counts = {}, rules = [];
+  const token = (kind, value) => {
+    const k = kind + '|' + value.toLowerCase().replace(/\s+/g, ' ');
+    if (!tokens.has(k)){
+      counts[kind] = (counts[kind] || 0) + 1;
+      const t = '[' + kind + (counts[kind] > 1 ? ' ' + counts[kind] : '') + ']';
+      tokens.set(k, t); back.set(t, value);
+    }
+    return tokens.get(k);
+  };
+  const esc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  const known = [];
+  const add = (kind, value) => { value = (value || '').trim(); if (value.length >= 3) known.push([kind, value]); };
+  const field = id => $(id) ? $(id).value : '';
+  add('CLIENT', field('cNom'));
+  add('CLIENT', field('cNom').replace(/^\s*(?:m\.|mr\.?|mme|mlle|monsieur|madame|mademoiselle)\s+/i, ''));
+  field('cNom').split(/[\s,]+/).filter(w => w.length >= 3 && /^\p{Lu}/u.test(w) && !NOT_NAMES.has(w.toLowerCase().replace(/\.$/, ''))).forEach(w => add('NOM', w));
+  field('cAdr').split('\n').forEach(l => add('ADRESSE', l));
+  add('EMAIL', field('cEmail')); add('SIREN', field('cSiren'));
+  add('ENTREPRISE', field('eNom'));
+  field('eAdr').split('\n').forEach(l => add('ADRESSE', l));
+  add('EMAIL', field('eEmail')); add('TEL', field('eTel')); add('SIRET', field('eSiret'));
+  // Les valeurs les plus longues d'abord (le nom complet avant le nom de famille seul)
+  known.sort((a, b) => b[1].length - a[1].length).forEach(([kind, value]) =>
+    rules.push([new RegExp('(?<![\\p{L}\\d])' + esc(value) + '(?![\\p{L}\\d])', 'giu'), kind]));
+  rules.push([/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu, 'EMAIL']);
+  rules.push([/(?:\+33\s?|0)[1-9](?:[\s.-]?\d{2}){4}/g, 'TEL']);
+  rules.push([/\b\d{1,4}\s?(?:bis|ter)?,?\s+(?:rue|avenue|av\.|boulevard|bd|chemin|allée|allee|impasse|place|route|quai|cours|square|résidence|residence|lotissement|lieu-dit)\s+[^,;\n.]+/giu, 'ADRESSE']);
+  rules.push([/\b\d{5}\s+\p{Lu}[\p{L}'-]+(?:[\s-]\p{Lu}[\p{L}'-]+)*/gu, 'VILLE']);
+  return {
+    mask: t => rules.reduce((acc, [re, kind]) => acc.replace(re, m => token(kind, m)), t || ''),
+    unmask: t => (t || '').replace(/\[[A-Z]+(?: \d+)?\]/g, m => back.has(m) ? back.get(m) : m),
+    count: () => back.size,
+  };
+}
+
+// Données envoyées à l'IA : textes masqués, prestations de la bibliothèque sans les prix
+function assistantRequest(action, texte){
+  const masker = makeMasker();
+  if (action === 'devis'){
+    const items = [...library.map(i => ({metier: i.metier, d: i.d, u: i.u})),
+      ...frequentLines().filter(f => !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({metier: '', d: f.d, u: f.u}))];
+    return {masker, body: {action, texte: masker.mask(texte), bibliotheque: items.map(i => ({metier: i.metier || '', d: masker.mask(i.d), u: i.u || ''}))}};
+  }
+  const rows = getLines().filter(l => l.d);
+  return {masker, rows, body: {action, lignes: rows.map(l => masker.mask(l.d))}};
+}
+
+function previewText(body){
+  if (body.action === 'devis') return 'Description du chantier :\n' + body.texte + '\n\nBibliothèque (' + plural(body.bibliotheque.length, 'prestation') + ', sans les prix) :\n'
+    + (body.bibliotheque.map(i => '- ' + (i.metier ? i.metier + ' · ' : '') + i.d + (i.u ? ' (' + i.u + ')' : '')).join('\n') || '(vide)');
+  return 'Descriptions des lignes :\n' + body.lignes.map((d, i) => (i + 1) + '. ' + d).join('\n');
+}
+
+function previewButton(id, box, request){
+  return el('button', {id, className: 'ghost', textContent: 'Voir ce qui sera envoyé', onclick: () => {
+    const req = request();
+    if (!req) return;
+    box.replaceChildren(el('p', {className: 'hint', textContent: 'Texte exact transmis à l\'IA (Mistral). Les repères entre crochets remplacent les données personnelles ; ils sont remis à leur place dans la réponse.', style: 'margin-top:12px'}),
+      el('pre', {className: 'ia-note ia-preview', textContent: previewText(req.body)}));
+  }});
+}
+
+function openAssistant(){
+  const texte = el('textarea', {id: 'iaTexte', rows: 6, placeholder: 'Ex. Chambre de 3,5 × 3 m, 2,50 m sous plafond. Dépose de la moquette, ponçage et deux couches sur murs et plafond, pose d\'un parquet flottant.'});
+  const result = el('div', {id: 'iaResult'});
+  const reform = el('div', {id: 'iaReformResult'});
+  const gen = el('button', {id: 'iaGen', className: 'primary', textContent: 'Proposer les lignes'});
+  const refBtn = el('button', {id: 'iaReform', textContent: 'Reformuler les descriptions du devis'});
+  const devisRequest = () => {
+    if (!texte.value.trim()){ toast('Décrivez le chantier.', true); texte.focus(); return null; }
+    return assistantRequest('devis', texte.value);
+  };
+  const reformRequest = () => {
+    const req = assistantRequest('reformuler');
+    if (!req.rows.length){ toast('Ajoutez d\'abord des lignes au devis.', true); return null; }
+    return req;
+  };
+
+  gen.onclick = () => busy(gen, 'Rédaction en cours…', async () => {
+    const req = devisRequest();
+    if (!req) return;
+    const data = await callAssistant(req.body);
+    if (data) showProposal(result, {
+      remarques: req.masker.unmask(data.remarques),
+      // Les prix viennent de la bibliothèque, jamais de l'IA
+      lignes: (data.lignes || []).map(l => {
+        const d = req.masker.unmask(l.d), known = knownItem(d);
+        return {d, q: l.q, u: l.u || (known && known.u) || '', p: known ? known.p : 0, bibliotheque: !!known};
+      })});
+  });
+
+  refBtn.onclick = () => busy(refBtn, 'Reformulation en cours…', async () => {
+    const req = reformRequest();
+    if (!req) return;
+    const data = await callAssistant(req.body);
+    if (data) showReformulation(reform, req.rows, (data.lignes || []).map(d => req.masker.unmask(d)));
+  });
+
+  openPanel({type: 'ia', id: 'ia'}, 'Assistant IA',
+    block('Rédiger à partir d\'une description',
+      el('p', {className: 'hint', textContent: 'Décrivez le chantier avec les dimensions : l\'assistant propose les lignes, et vos prix de la bibliothèque sont repris. Vous choisissez ensuite celles à ajouter.'}),
+      el('div', {className: 'field'}, el('label', {htmlFor: 'iaTexte', textContent: 'Description du chantier'}), texte),
+      el('p', {className: 'ia-ex', textContent: 'Le nom, l\'adresse, l\'email et le téléphone du client sont masqués avant l\'envoi, et vos prix ne sont jamais transmis. Évitez de citer d\'autres personnes.'}),
+      el('div', {className: 'pactions'}, gen, previewButton('iaPreview', result, devisRequest)), result),
+    block('Améliorer les descriptions',
+      el('p', {className: 'hint', textContent: 'Réécrit les descriptions des lignes du devis de façon claire et professionnelle, sans changer les quantités ni les prix.'}),
+      el('div', {className: 'pactions'}, refBtn, previewButton('iaReformPreview', reform, reformRequest)), reform),
+    block(null, el('p', {className: 'hint', textContent: 'Les propositions de l\'IA peuvent contenir des erreurs : relisez toujours le devis avant de l\'envoyer.'})));
+  texte.focus();
+}
+
+function showProposal(box, data){
+  const lignes = data.lignes || [];
+  if (!lignes.length){ box.replaceChildren(el('p', {className: 'hint', textContent: 'Aucune ligne proposée. Précisez la description.'})); return; }
+  const items = lignes.map(l => {
+    const cb = el('input', {type: 'checkbox', checked: true, onchange: count});
+    const qty = String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '');
+    const sub = el('small', {}, qty + (l.p ? ' × ' + fmt(l.p) + ' HT ' : ' · '));
+    if (!l.p) sub.append(el('span', {className: 'tag warn', textContent: 'prix à compléter'}));
+    else if (l.bibliotheque) sub.append(el('span', {className: 'tag', textContent: 'bibliothèque'}));
+    return {l, box: cb, node: el('div', {className: 'libitem iaitem'}, el('label', {}, cb, el('span', {className: 'txt'}, l.d, sub)))};
+  });
+  const add = el('button', {id: 'iaAdd', className: 'primary', onclick: () => {
+    const chosen = items.filter(i => i.box.checked).map(i => i.l);
+    if (!chosen.length) return;
+    getLines().filter(l => !l.d && !l.p).forEach(l => l.row.remove());
+    chosen.forEach(l => addLine(l.d, l.q, l.p, l.u));
+    calc();
+    const missing = chosen.filter(l => !l.p).length;
+    toast(plural(chosen.length, 'ligne') + ' ajoutée' + (chosen.length > 1 ? 's' : '') + ' au devis.' + (missing ? ' Complétez le prix de ' + plural(missing, 'ligne') + '.' : ''));
+    box.replaceChildren();
+  }});
+  function count(){
+    const n = items.filter(i => i.box.checked).length;
+    add.textContent = 'Ajouter au devis (' + n + ')';
+    add.disabled = !n;
+  }
+  box.replaceChildren(el('h4', {textContent: 'Lignes proposées', style: 'margin-top:16px'}), ...items.map(i => i.node),
+    ...(data.remarques ? [el('p', {className: 'ia-note', id: 'iaNote', textContent: data.remarques})] : []),
+    el('div', {className: 'pactions'}, add));
+  count();
+}
+
+function showReformulation(box, rows, lignes){
+  const items = rows.map((r, i) => ({r, d: (lignes[i] || '').trim()})).filter(i => i.d && i.d !== i.r.d).map(i => {
+    i.box = el('input', {type: 'checkbox', checked: true});
+    i.node = el('div', {className: 'libitem iaitem'}, el('label', {}, i.box, el('span', {className: 'txt'}, i.d, el('small', {className: 'ia-old', textContent: i.r.d}))));
+    return i;
+  });
+  if (!items.length){ box.replaceChildren(el('p', {className: 'hint', textContent: 'Les descriptions sont déjà bien rédigées.'})); return; }
+  box.replaceChildren(el('h4', {textContent: 'Nouvelles descriptions', style: 'margin-top:16px'}), ...items.map(i => i.node),
+    el('div', {className: 'pactions'}, el('button', {id: 'iaApply', className: 'primary', textContent: 'Remplacer les descriptions cochées', onclick: () => {
+      const chosen = items.filter(i => i.box.checked);
+      chosen.forEach(i => { const d = i.r.row.querySelector('.d'); d.value = i.d; d.dispatchEvent(new Event('input', {bubbles: true})); });
+      toast(plural(chosen.length, 'description') + ' remplacée' + (chosen.length > 1 ? 's' : '') + '.');
+      box.replaceChildren();
+    }})));
+}
+
+$('iaBtn').onclick = openAssistant;
 
 // Signet plein quand la description de la ligne est déjà dans la bibliothèque
 function markSaved(row){

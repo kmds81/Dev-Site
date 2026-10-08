@@ -91,6 +91,51 @@ factures ou la bibliothèque de prestations), relancez simplement tout le conten
 script ne touche pas aux données existantes. Tant qu'il n'est pas relancé, la page continue de
 fonctionner, sans la nouveauté (elle prévient quand c'est le cas).
 
+## Assistant IA (facultatif)
+
+Le bouton **Assistant IA** de l'éditeur propose les lignes d'un devis à partir d'une description
+du chantier (en reprenant les prix de la bibliothèque) et reformule les descriptions. L'IA est appelée par
+une fonction Supabase, `assistant-devis`, qui garde la clé secrète : la page n'y a jamais accès.
+Chaque compte est limité à 30 demandes par jour.
+
+L'IA utilisée par défaut est **Mistral** (entreprise française), avec son offre gratuite.
+
+1. **Base** : relancez `supabase/schema.sql` dans **SQL Editor** (il ajoute le compteur de
+   demandes).
+2. **Clé de l'IA** : sur [console.mistral.ai](https://console.mistral.ai), créez un compte,
+   choisissez l'offre gratuite **Experiment** (une vérification par téléphone est demandée),
+   puis créez une clé dans **API Keys**. Elle est secrète : ne la mettez jamais dans `index.html`.
+3. **Secret** : dans Supabase, **Edge Functions** > **Secrets**, ajoutez `MISTRAL_API_KEY`
+   avec cette clé.
+4. **Fonction** : **Edge Functions** > **Deploy a new function** > **Via Editor**. Nommez-la
+   exactement `assistant-devis`, remplacez le code d'exemple par tout le contenu de
+   `supabase/functions/assistant-devis/index.ts`, puis **Deploy function**.
+
+C'est tout : le bouton fonctionne pour tous les comptes connectés, avec votre clé (les autres
+utilisateurs n'ont pas besoin de compte Mistral). Si l'assistant répond
+« Invalid JWT », ouvrez la fonction, onglet **Details**, et désactivez **Verify JWT** : la fonction
+vérifie elle-même que l'utilisateur est connecté.
+
+L'offre gratuite de Mistral limite le nombre de requêtes par minute, ce qui suffit pour un usage
+personnel. En contrepartie, les données envoyées peuvent servir à améliorer leurs modèles
+(voir les réglages de confidentialité de la console Mistral). C'est pourquoi la page limite ce
+qu'elle envoie :
+- seules la description du chantier, les libellés de la bibliothèque et les descriptions des lignes
+  sont envoyés : jamais les fiches clients, les factures ni **les prix** (la page remet elle-même
+  vos prix sur les lignes reconnues) ;
+- avant l'envoi, le nom, l'adresse, l'email et le téléphone du client et de l'entreprise, ainsi que
+  tout email, numéro de téléphone ou adresse repéré dans le texte, sont remplacés par des repères
+  ([CLIENT], [ADRESSE]…), remis en clair dans la réponse ;
+- le bouton **Voir ce qui sera envoyé** affiche le texte exact transmis.
+
+Un nom qui n'est pas celui du client du devis (un voisin, un autre artisan) ne peut pas être
+reconnu à coup sûr : vérifiez l'aperçu en cas de doute.
+
+**Changer d'IA** : sans toucher au code, remplacez le secret.
+- Autre modèle Mistral : ajoutez `MISTRAL_MODEL` (par défaut `mistral-small-latest`).
+- Claude (Anthropic, payant à l'usage) : supprimez `MISTRAL_API_KEY` et ajoutez
+  `ANTHROPIC_API_KEY`, une clé créée sur [console.anthropic.com](https://console.anthropic.com).
+
 ## Offre gratuite ou payante
 
 L'offre gratuite suffit pour tester avec quelques utilisateurs, mais :
