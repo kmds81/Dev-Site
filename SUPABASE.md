@@ -98,15 +98,15 @@ du chantier (en reprenant les prix de la bibliothèque) et reformule les descrip
 une fonction Supabase, `assistant-devis`, qui garde la clé secrète : la page n'y a jamais accès.
 Chaque compte est limité à 30 demandes par jour.
 
-L'IA conseillée est **Google Gemini**, dont l'API a une offre gratuite (Mistral et Claude restent
-possibles, voir « Changer d'IA » plus bas).
+L'IA conseillée est **Groq** (modèles ouverts), dont l'API a une offre gratuite sans carte
+bancaire. Gemini, Mistral et Claude restent possibles, voir « Changer d'IA » plus bas.
 
 1. **Base** : relancez `supabase/schema.sql` dans **SQL Editor** (il ajoute le compteur de
    demandes).
-2. **Clé de l'IA** : sur [aistudio.google.com](https://aistudio.google.com), connectez-vous avec
-   un compte Google, puis **Get API key** > **Create API key**. Aucune carte bancaire n'est
-   demandée pour l'offre gratuite. La clé est secrète : ne la mettez jamais dans `index.html`.
-3. **Secret** : dans Supabase, **Edge Functions** > **Secrets**, ajoutez `GEMINI_API_KEY`
+2. **Clé de l'IA** : sur [console.groq.com](https://console.groq.com), créez un compte, puis
+   **API Keys** > **Create API Key**. La clé commence par `gsk_` et ne s'affiche qu'une fois. Elle
+   est secrète : ne la mettez jamais dans `index.html`.
+3. **Secret** : dans Supabase, **Edge Functions** > **Secrets**, ajoutez `GROQ_API_KEY`
    avec cette clé.
 4. **Fonction** : **Edge Functions** > **Deploy a new function** > **Via Editor**. Nommez-la
    exactement `assistant-devis`, remplacez le code d'exemple par tout le contenu de
@@ -123,11 +123,11 @@ utilisateurs n'ont pas besoin de compte chez le fournisseur d'IA). Si l'assistan
 « Invalid JWT », ouvrez la fonction, onglet **Details**, et désactivez **Verify JWT** : la fonction
 vérifie elle-même que l'utilisateur est connecté.
 
-L'offre gratuite de Gemini limite le nombre de demandes par minute et par jour, ce qui suffit pour
-quelques utilisateurs ; la fonction réessaie automatiquement quand la limite est atteinte. Selon les
-conditions de Google, les textes envoyés sur l'offre gratuite peuvent servir à améliorer leurs
-services (les conditions diffèrent en Europe : vérifiez-les dans Google AI Studio). C'est pourquoi la
-page limite ce qu'elle envoie :
+Les offres gratuites limitent le nombre de demandes par minute et par jour, ce qui suffit pour
+quelques utilisateurs ; la fonction réessaie automatiquement quand la limite est atteinte. Le
+message d'erreur indique l'IA utilisée et sa réponse exacte. Les textes envoyés passent par le
+fournisseur d'IA (consultez ses conditions d'utilisation des données). C'est pourquoi la page limite
+ce qu'elle envoie :
 - seules la description du chantier, les libellés de la bibliothèque et les descriptions des lignes
   sont envoyés : jamais les fiches clients, les factures ni **les prix** (la page remet elle-même
   vos prix sur les lignes reconnues) ;
@@ -140,16 +140,19 @@ Un nom qui n'est pas celui du client du devis (un voisin, un autre artisan) ne p
 reconnu à coup sûr : vérifiez l'aperçu en cas de doute.
 
 **Changer d'IA** : sans toucher au code, en changeant les secrets.
-- Gemini : `GEMINI_API_KEY` (et `GEMINI_MODEL` pour un autre modèle, `gemini-flash-latest` par
-  défaut).
+- Groq : `GROQ_API_KEY` (et `GROQ_MODEL` pour un autre modèle, `openai/gpt-oss-120b` par défaut,
+  à choisir parmi les modèles de la console Groq qui gèrent les « tool calls »).
+- Gemini : `GEMINI_API_KEY`, une clé de [aistudio.google.com](https://aistudio.google.com) (et
+  `GEMINI_MODEL`, `gemini-flash-latest` par défaut). Certains comptes Google sont refusés
+  (« Your project has been denied access ») : utilisez alors une autre IA.
 - Mistral : `MISTRAL_API_KEY`, une clé de [console.mistral.ai](https://console.mistral.ai). Attention,
   les clés API Mistral ne fonctionnent qu'avec un abonnement (le plan gratuit ne permet de tester
   que dans leur interface).
 - Claude (Anthropic, payant à l'usage) : `ANTHROPIC_API_KEY`, une clé de
   [console.anthropic.com](https://console.anthropic.com).
 
-Si plusieurs clés sont présentes, Gemini est utilisée en priorité, puis Mistral, puis Claude. Pour
-en imposer une, ajoutez le secret `AI_PROVIDER` avec `gemini`, `mistral` ou `claude`.
+Si plusieurs clés sont présentes, Groq est utilisée en priorité, puis Gemini, Mistral et Claude. Pour
+en imposer une, ajoutez le secret `AI_PROVIDER` avec `groq`, `gemini`, `mistral` ou `claude`.
 
 ## Offre gratuite ou payante
 

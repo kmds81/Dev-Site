@@ -8,25 +8,28 @@
 // - « reformuler » : réécrit les descriptions des lignes de façon professionnelle.
 //
 // Secrets à définir dans Supabase (Edge Functions > Secrets), selon l'IA choisie :
-// - GEMINI_API_KEY : clé de l'API Google Gemini (aistudio.google.com, offre gratuite) ;
+// - GROQ_API_KEY : clé de l'API Groq (console.groq.com, offre gratuite) ;
+//   GROQ_MODEL (facultatif) : modèle, openai/gpt-oss-120b par défaut ;
+// - ou GEMINI_API_KEY : clé de l'API Google Gemini (aistudio.google.com, offre gratuite) ;
 //   GEMINI_MODEL (facultatif) : modèle, gemini-flash-latest par défaut ;
 // - ou MISTRAL_API_KEY : clé de l'API Mistral (console.mistral.ai, abonnement requis) ;
 //   MISTRAL_MODEL (facultatif) : modèle, mistral-small-latest par défaut ;
 // - ou ANTHROPIC_API_KEY : clé de l'API Claude (console.anthropic.com, payante à l'usage) ;
 //   ANTHROPIC_MODEL (facultatif) : modèle, Claude Haiku par défaut.
-// Si plusieurs clés sont présentes : Gemini, puis Mistral, puis Claude ; ou celle indiquée
-// par le secret AI_PROVIDER (gemini, mistral ou claude).
+// Si plusieurs clés sont présentes : Groq, puis Gemini, puis Mistral, puis Claude ; ou celle
+// indiquée par le secret AI_PROVIDER (groq, gemini, mistral ou claude).
 // La page masque les données personnelles (client, adresses, emails, téléphones) avant l'envoi.
 // Chaque compte est limité à un nombre de demandes par jour (fonction ia_consommer de schema.sql).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+const GROQ_KEY = Deno.env.get('GROQ_API_KEY') || '';
 const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') || '';
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') || '';
 const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
-const KEYS: Record<string, string> = { gemini: GEMINI_KEY, mistral: MISTRAL_KEY, claude: ANTHROPIC_KEY };
+const KEYS: Record<string, string> = { groq: GROQ_KEY, gemini: GEMINI_KEY, mistral: MISTRAL_KEY, claude: ANTHROPIC_KEY };
 const wanted = (Deno.env.get('AI_PROVIDER') || '').trim().toLowerCase();
-const PROVIDER = KEYS[wanted] ? wanted : ['gemini', 'mistral', 'claude'].find((p) => KEYS[p]) || '';
+const PROVIDER = KEYS[wanted] ? wanted : ['groq', 'gemini', 'mistral', 'claude'].find((p) => KEYS[p]) || '';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -123,18 +126,19 @@ async function postAI(url: string, init: RequestInit) {
   }
 }
 
-// Demande à l'IA de répondre en remplissant l'outil (réponse structurée en JSON)
-async function askMistral(system: string, tool: Tool, content: string) {
-  const res = await postAI('https://api.mistral.ai/v1/chat/completions', {
+// Demande à l'IA de répondre en remplissant l'outil (réponse structurée en JSON).
+// Mistral et Groq utilisent le même format d'API (celui d'OpenAI).
+async function askOpenAIStyle(url: string, key: string, model: string, toolChoice: unknown, system: string, tool: Tool, content: string) {
+  const res = await postAI(url, {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + MISTRAL_KEY, 'Content-Type': 'application/json' },
+    headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: Deno.env.get('MISTRAL_MODEL') || 'mistral-small-latest',
+      model,
       max_tokens: 4000,
       temperature: 0.2,
       messages: [{ role: 'system', content: system }, { role: 'user', content }],
       tools: [{ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.input_schema } }],
-      tool_choice: 'any',
+      tool_choice: toolChoice,
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -143,6 +147,14 @@ async function askMistral(system: string, tool: Tool, content: string) {
   if (!args) throw new Error('Réponse de l\'IA inattendue');
   return typeof args === 'string' ? JSON.parse(args) : args;
 }
+
+const askMistral = (system: string, tool: Tool, content: string) =>
+  askOpenAIStyle('https://api.mistral.ai/v1/chat/completions', MISTRAL_KEY,
+    Deno.env.get('MISTRAL_MODEL') || 'mistral-small-latest', 'any', system, tool, content);
+
+const askGroq = (system: string, tool: Tool, content: string) =>
+  askOpenAIStyle('https://api.groq.com/openai/v1/chat/completions', GROQ_KEY,
+    Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-120b', { type: 'function', function: { name: tool.name } }, system, tool, content);
 
 async function askClaude(system: string, tool: Tool, content: string) {
   const res = await postAI('https://api.anthropic.com/v1/messages', {
@@ -190,7 +202,8 @@ async function askGemini(system: string, tool: Tool, content: string) {
 }
 
 const askAI = (system: string, tool: Tool, content: string) =>
-  PROVIDER === 'gemini' ? askGemini(system, tool, content)
+  PROVIDER === 'groq' ? askGroq(system, tool, content)
+    : PROVIDER === 'gemini' ? askGemini(system, tool, content)
     : PROVIDER === 'mistral' ? askMistral(system, tool, content)
     : askClaude(system, tool, content);
 
@@ -199,7 +212,7 @@ async function handle(req: Request): Promise<Response> {
   // Vérification depuis le navigateur : indique l'IA utilisée (jamais la clé)
   if (req.method === 'GET') return reply(405, { error: 'Méthode non autorisée', ia: PROVIDER || 'aucune clé' });
   if (req.method !== 'POST') return reply(405, { error: 'Méthode non autorisée' });
-  if (!PROVIDER) return reply(500, { error: 'Clé de l\'IA absente : ajoutez GEMINI_API_KEY dans les secrets des Edge Functions' });
+  if (!PROVIDER) return reply(500, { error: 'Clé de l\'IA absente : ajoutez GROQ_API_KEY dans les secrets des Edge Functions' });
 
   // Utilisateur connecté obligatoire : le jeton de la page est vérifié auprès de Supabase
   const auth = req.headers.get('Authorization') || '';
