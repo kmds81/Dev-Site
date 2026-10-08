@@ -99,9 +99,26 @@ Reste concis : une phrase, 200 caractères au plus. Garde le même numéro i pou
 
 type Tool = typeof TOOL_DEVIS | typeof TOOL_REFORMULER;
 
+class AIError extends Error {
+  status: number;
+  constructor(status: number, message: string) { super(message); this.status = status; }
+}
+
+// Appel à l'IA, réessayé quelques secondes plus tard si elle est saturée
+// (l'offre gratuite de Mistral limite le nombre de demandes par seconde et par minute).
+async function postAI(url: string, init: RequestInit) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, init);
+    if (![429, 503, 529].includes(res.status) || attempt >= 3) return res;
+    await res.body?.cancel();
+    const wait = Math.min(Number(res.headers.get('retry-after')) || 2 ** attempt * 1.5, 10);
+    await new Promise((r) => setTimeout(r, wait * 1000));
+  }
+}
+
 // Demande à l'IA de répondre en remplissant l'outil (réponse structurée en JSON)
 async function askMistral(system: string, tool: Tool, content: string) {
-  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+  const res = await postAI('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + MISTRAL_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -114,14 +131,14 @@ async function askMistral(system: string, tool: Tool, content: string) {
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error('IA ' + res.status + ' : ' + (data?.message || data?.error?.message || data?.detail || 'erreur inconnue'));
+  if (!res.ok) throw new AIError(res.status, 'IA ' + res.status + ' : ' + (data?.message || data?.error?.message || data?.detail || 'erreur inconnue'));
   const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) throw new Error('Réponse de l\'IA inattendue');
   return typeof args === 'string' ? JSON.parse(args) : args;
 }
 
 async function askClaude(system: string, tool: Tool, content: string) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await postAI('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': ANTHROPIC_KEY,
@@ -138,7 +155,7 @@ async function askClaude(system: string, tool: Tool, content: string) {
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error('IA ' + res.status + ' : ' + (data?.error?.message || 'erreur inconnue'));
+  if (!res.ok) throw new AIError(res.status, 'IA ' + res.status + ' : ' + (data?.error?.message || 'erreur inconnue'));
   const out = (data.content || []).find((c: { type: string }) => c.type === 'tool_use');
   if (!out) throw new Error('Réponse de l\'IA inattendue');
   return out.input;
@@ -147,7 +164,7 @@ async function askClaude(system: string, tool: Tool, content: string) {
 const askAI = (system: string, tool: Tool, content: string) =>
   MISTRAL_KEY ? askMistral(system, tool, content) : askClaude(system, tool, content);
 
-Deno.serve(async (req) => {
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'Méthode non autorisée' });
   if (!MISTRAL_KEY && !ANTHROPIC_KEY) return reply(500, { error: 'Clé de l\'IA absente : ajoutez MISTRAL_API_KEY dans les secrets des Edge Functions' });
@@ -202,6 +219,18 @@ Deno.serve(async (req) => {
     return reply(200, { lignes: result });
   } catch (e) {
     console.error(e);
+    if (e instanceof AIError && [429, 503, 529].includes(e.status))
+      return reply(503, { error: 'L\'IA est momentanément saturée (limite de l\'offre gratuite). Réessayez dans une minute.', code: 'IA_SATUREE' });
     return reply(502, { error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+// Toute erreur imprévue est renvoyée avec les en-têtes CORS, pour que la page puisse l'afficher
+Deno.serve(async (req) => {
+  try {
+    return await handle(req);
+  } catch (e) {
+    console.error(e);
+    return reply(500, { error: 'Erreur de la fonction : ' + (e instanceof Error ? e.message : String(e)) });
   }
 });
