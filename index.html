@@ -2798,13 +2798,26 @@ async function callAssistant(body){
   if (!sb || !user){ toast('Connectez-vous pour utiliser l\'assistant.', true); return null; }
   const {data, error} = await sb.functions.invoke('assistant-devis', {body});
   if (!error) return data;
-  let status = error.context && error.context.status, info = {};
-  try { info = await error.context.json(); } catch(e){}
-  if (status === 404 || (!status && /fetch|relay/i.test(error.name || '')))
-    toast('L\'assistant IA n\'est pas encore installé sur la base : suivez la partie « Assistant IA » de SUPABASE.md.', true);
-  else if (info.code === 'PGRST202')
+  // Réponse de la fonction (erreur HTTP) ou échec de connexion (pas de statut)
+  const status = error.context && error.context.status;
+  let info = {};
+  if (status){
+    try {
+      const t = await error.context.text();
+      try { info = JSON.parse(t); } catch(e){ info = {error: t.slice(0, 200)}; }
+    } catch(e){}
+  }
+  const msg = info.error || info.message || info.msg || '';
+  const detail = ' (détail technique : ' + [error.name, status, info.code, msg || error.message].filter(Boolean).join(' · ') + ')';
+  if (info.code === 'PGRST202')
     toast('Base pas à jour pour l\'assistant : relancez supabase/schema.sql dans Supabase.', true);
-  else toast(info.error || error.message || 'L\'assistant n\'a pas pu répondre.', true);
+  else if (status === 404)
+    toast('Fonction assistant-devis introuvable dans votre projet Supabase : vérifiez son nom exact et qu\'elle est bien déployée.' + detail, true);
+  else if (!status)
+    toast('Impossible de joindre l\'assistant. Dans Supabase, ouvrez Edge Functions > assistant-devis > Logs : la fonction a peut-être planté au démarrage.' + detail, true);
+  else if (status === 401 && /jwt/i.test(msg))
+    toast('Supabase refuse l\'appel : dans Edge Functions > assistant-devis > Details, désactivez « Verify JWT ».' + detail, true);
+  else toast((msg || 'L\'assistant n\'a pas pu répondre.') + (status >= 500 ? detail : ''), true);
   return null;
 }
 
