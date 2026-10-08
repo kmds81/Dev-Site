@@ -892,7 +892,9 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        <p class="hint">Ces informations figurent sur les devis et les factures de cette entreprise.
         Pour une entreprise individuelle, ajoutez « EI » au nom (ex. « Jean Dupont EI »).</p>
        <div class="grid" style="margin-top:12px">
-        <div><label for="eForme">Forme juridique</label><input id="eForme" list="formes" placeholder="Ex. SARL, SAS, EI"></div>
+        <div><label for="eFormeSel">Forme juridique</label>
+         <select id="eFormeSel"><option value="">Non précisée</option><option>EI</option><option>EI (micro-entrepreneur)</option><option>EURL</option><option>SARL</option><option>SASU</option><option>SAS</option><option>SA</option><option>SNC</option><option>SCI</option><option>Association</option><option value="__autre">Autre…</option></select>
+         <input id="eForme" placeholder="Précisez la forme juridique" aria-label="Autre forme juridique" hidden style="margin-top:6px"></div>
         <div><label for="eCapital">Capital social (sociétés)</label><input id="eCapital" placeholder="Ex. 1 000 €"></div>
         <div><label for="eRcs">Immatriculation (RCS / RM)</label><input id="eRcs" placeholder="Ex. RCS Paris 123 456 789"></div>
         <div><label for="eTvaIntra">N° de TVA intracommunautaire</label><input id="eTvaIntra" placeholder="Ex. FR12 123456789"></div>
@@ -902,7 +904,6 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
         <label class="check"><input type="checkbox" id="eFranchise"> <span><strong>Franchise en base de TVA</strong> (micro-entrepreneur, auto-entrepreneur)</span></label>
         <p class="hint">Les devis et factures de cette entreprise sont faits sans TVA : pas de HT ni de TTC, un seul total, et la mention « TVA non applicable, art. 293 B du CGI ». À décocher si vous dépassez les seuils de la franchise ou si vous choisissez de facturer la TVA.</p>
        </div>
-       <datalist id="formes"><option value="EI"><option value="EI (micro-entrepreneur)"><option value="EURL"><option value="SARL"><option value="SASU"><option value="SAS"></datalist>
        <div class="field"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
         <textarea id="eAssurance" rows="2"></textarea></div>
        <div class="field"><label for="eCondFacture">Conditions des factures (mode de paiement, coordonnées bancaires…)</label>
@@ -1051,7 +1052,27 @@ function priceLabels(){
 }
 
 // Franchise en base de TVA (micro-entrepreneur) : TVA à 0 %, un seul total, sans HT ni TTC
+// Forme juridique : menu des formes courantes, ou saisie libre avec « Autre… ».
+// La valeur enregistrée reste le texte du champ eForme.
+const FORMES = [...document.querySelectorAll('#eFormeSel option')].map(o => o.value).filter(v => v && v !== '__autre');
+function syncForme(){
+  const v = $('eForme').value.trim();
+  if (document.activeElement === $('eForme')) return;
+  const autre = v !== '' && !FORMES.includes(v);
+  $('eFormeSel').value = autre ? '__autre' : v;
+  $('eForme').hidden = !autre;
+}
+$('eFormeSel').onchange = () => {
+  const v = $('eFormeSel').value, autre = v === '__autre';
+  $('eForme').hidden = !autre;
+  if (autre){ if (FORMES.includes($('eForme').value)) $('eForme').value = ''; $('eForme').focus(); }
+  else $('eForme').value = v;
+  $('eForme').dispatchEvent(new Event('input'));
+};
+$('eForme').addEventListener('blur', syncForme);
+
 function applyFranchise(){
+  syncForme();
   const on = $('eFranchise').checked, was = isFranchise();
   document.body.classList.toggle('franchise', on);
   if (on && $('tva').value !== '0') $('tva').value = '0';
