@@ -87,7 +87,7 @@ permet à chacun de la relier à son propre projet.
 ## Mettre à jour la base
 
 Quand une nouvelle version ajoute quelque chose à la base (par exemple la date de paiement des
-factures ou la bibliothèque de prestations), relancez simplement tout le contenu de `supabase/schema.sql` dans **SQL Editor**. Le
+factures, la bibliothèque de prestations, les avoirs ou les factures d'acompte), relancez simplement tout le contenu de `supabase/schema.sql` dans **SQL Editor**. Le
 script ne touche pas aux données existantes. Tant qu'il n'est pas relancé, la page continue de
 fonctionner, sans la nouveauté (elle prévient quand c'est le cas).
 

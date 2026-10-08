@@ -191,6 +191,8 @@ table.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums
 .avline .check{flex:1;min-width:0}
 .avq{display:flex;align-items:center;gap:6px;flex:none}
 .avq input{width:72px}
+.acin{display:block;margin-top:6px}
+label.check .acin input{width:140px;height:34px;min-height:34px;margin:0;flex:none}
 .avq small{color:var(--muted);font-size:.74rem;white-space:nowrap}
 .avfoot{align-items:center;flex-wrap:wrap}
 .avfoot>div{flex:1 0 100%;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
@@ -272,6 +274,10 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .ia-ex{font-size:.8rem;color:var(--muted);margin:6px 0 0}
 .ia-note{background:var(--gray-soft);border-radius:6px;padding:10px 12px;font-size:.82rem;color:var(--ink-2);white-space:pre-wrap;margin:10px 0 0}
 .ia-old{text-decoration:line-through;color:var(--muted)}
+.logo-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.logo-box{width:160px;height:72px;border:1px dashed var(--line-2);border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;color:var(--muted);font-size:.8rem}
+.logo-box img{max-width:100%;max-height:100%;object-fit:contain}
+.linkbtn{background:none;border:0;box-shadow:none;padding:0;min-height:0;height:auto;color:var(--accent);font-size:inherit;text-decoration:underline;cursor:pointer}
 .ia-preview{font:inherit;font-size:.78rem;max-height:260px;overflow:auto}
 .tag.warn{background:#fff4e5;color:#9a5b00}
 .libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -893,6 +899,19 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        <div><label for="eTel">Téléphone</label><input id="eTel"></div>
       </div>
       <div class="field"><label for="eAdr">Adresse</label><textarea id="eAdr" rows="2"></textarea></div>
+      <div class="field">
+       <label for="eLogoFile">Logo (en haut des devis et factures)</label>
+       <div class="logo-row">
+        <div class="logo-box" id="logoBox"><img id="logoImg" alt="Logo de l'entreprise" hidden><span id="logoNone">Aucun logo</span></div>
+        <div>
+         <input type="file" id="eLogoFile" accept="image/png,image/jpeg,image/webp" hidden>
+         <button id="logoPick" type="button">Choisir une image</button>
+         <button id="logoDel" type="button" class="ghost" hidden>Retirer</button>
+         <p class="hint" style="margin:6px 0 0">PNG ou JPEG. L'image est réduite automatiquement.</p>
+        </div>
+       </div>
+       <input type="hidden" id="eLogo">
+      </div>
       <details id="legal" open>
        <summary>Mentions légales et conditions des factures</summary>
        <p class="hint">Ces informations figurent sur les devis et les factures de cette entreprise.
@@ -912,6 +931,9 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        </div>
        <div class="field"><label for="eAssurance">Assurance professionnelle (assureur, n° de contrat, zone couverte) — obligatoire pour les artisans du bâtiment</label>
         <textarea id="eAssurance" rows="2"></textarea></div>
+       <div class="field"><label for="eDechets">Gestion des déchets — obligatoire sur les devis de travaux du bâtiment</label>
+        <textarea id="eDechets" rows="3" placeholder="Modalités d'enlèvement et de tri, point de collecte (nom, adresse, type d'installation) et coût estimé."></textarea>
+        <p class="hint" style="margin:4px 0 0">Imprimée sur les devis de cette entreprise. <button type="button" class="linkbtn" id="dechetsModel">Insérer un modèle à compléter</button></p></div>
        <div class="field"><label for="eCondFacture">Conditions des factures (mode de paiement, coordonnées bancaires…)</label>
         <textarea id="eCondFacture" rows="3"></textarea></div>
        <p class="hint">Les factures ajoutent toujours : pénalités de retard, indemnité forfaitaire de 40 € et absence d'escompte.</p>
@@ -1081,6 +1103,50 @@ function priceLabels(){
 }
 
 // Franchise en base de TVA (micro-entrepreneur) : TVA à 0 %, un seul total, sans HT ni TTC
+// Logo de l'entreprise : réduit (300 × 150 px au plus) et gardé dans le profil sous forme d'image
+// intégrée (data URL), puis copié dans chaque devis et facture avec les autres infos de l'entreprise.
+function showLogo(){
+  const v = $('eLogo').value;
+  $('logoImg').hidden = !v; $('logoNone').hidden = !!v; $('logoDel').hidden = !v;
+  if (v) $('logoImg').src = v; else $('logoImg').removeAttribute('src');
+}
+function setLogo(v){
+  $('eLogo').value = v;
+  $('eLogo').dispatchEvent(new Event('input'));
+  showLogo();
+}
+$('logoPick').onclick = () => $('eLogoFile').click();
+$('logoDel').onclick = () => setLogo('');
+$('eLogoFile').onchange = () => {
+  const file = $('eLogoFile').files[0];
+  $('eLogoFile').value = '';
+  if (!file) return;
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)){ toast('Choisissez une image PNG ou JPEG.', true); return; }
+  const img = new Image();
+  img.onload = () => {
+    const k = Math.min(1, 300 / img.width, 150 / img.height);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+    const ctx = c.getContext('2d');
+    // Fond blanc : le PDF n'a pas besoin de transparence, et le JPEG est bien plus léger
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(img.src);
+    setLogo(c.toDataURL('image/jpeg', 0.9));
+    toast('Logo enregistré. Il apparaîtra sur les prochains devis et factures.');
+  };
+  img.onerror = () => toast('Image illisible.', true);
+  img.src = URL.createObjectURL(file);
+};
+
+const DECHETS_MODELE = 'Gestion des déchets : les déchets du chantier sont triés et évacués par nos soins vers [nom de la déchetterie ou du point de collecte], [adresse], [type d\'installation : déchetterie professionnelle, centre de tri…]. Quantité estimée : [volume ou poids]. Coût estimé de l\'enlèvement et du traitement : [montant] €, compris dans le présent devis.';
+$('dechetsModel').onclick = () => {
+  if ($('eDechets').value.trim() && !confirm('Remplacer le texte actuel par le modèle ?')) return;
+  $('eDechets').value = DECHETS_MODELE;
+  $('eDechets').dispatchEvent(new Event('input'));
+  $('eDechets').focus();
+};
+
 // Forme juridique : menu des formes courantes, ou saisie libre avec « Autre… ».
 // La valeur enregistrée reste le texte du champ eForme.
 const FORMES = [...document.querySelectorAll('#eFormeSel option')].map(o => o.value).filter(v => v && v !== '__autre');
@@ -1347,6 +1413,15 @@ function makePDF(d){
   const L = 15, R = 195, e = d.entreprise, c = d.client;
   let y = 20;
 
+  // Logo en haut à gauche (50 × 18 mm au plus), le nom de l'entreprise en dessous
+  if (e.eLogo){
+    try {
+      const im = doc.getImageProperties(e.eLogo);
+      const h = Math.min(18, 50 * im.height / im.width), w = h * im.width / im.height;
+      doc.addImage(e.eLogo, im.fileType || 'JPEG', L, 10, w, h);
+      y = 10 + h + 8;
+    } catch(err){ /* image illisible : document sans logo */ }
+  }
   doc.setFont('helvetica','bold').setFontSize(18).text(e.eNom || 'Votre entreprise', L, y);
   doc.setFont('helvetica','normal').setFontSize(10);
   const emitter = [e.eAdr,
@@ -1355,6 +1430,7 @@ function makePDF(d){
     e.eEmail, e.eTel].filter(Boolean).join('\n');
   const emitterLines = doc.splitTextToSize(emitter, 95);
   doc.text(emitterLines, L, y + 6);
+  const emitterEnd = y + 6 + emitterLines.length * 4.3;
 
   doc.setFont('helvetica','bold').setFontSize(16).text(d.titre + ' ' + d.numero, R, y, {align:'right'});
   doc.setFont('helvetica','normal').setFontSize(10);
@@ -1368,7 +1444,7 @@ function makePDF(d){
   doc.text(clientLines, 120, y + 5);
 
   // Le tableau commence sous le plus long des blocs entreprise et client
-  y = Math.max(95, 26 + emitterLines.length * 4.3 + 6, 67 + clientLines.length * 4.3 + 6);
+  y = Math.max(95, emitterEnd + 6, 67 + clientLines.length * 4.3 + 6);
   doc.setFillColor(31,79,216).rect(L, y, R - L, 8, 'F');
   doc.setTextColor(255).setFont('helvetica','bold');
   doc.text('Description', L + 2, y + 5.5);
@@ -1419,6 +1495,7 @@ function devisPDF(q){
     titre: 'DEVIS',
     infos: ['Date : ' + frDate(q.date_devis), 'Valable jusqu\'au : ' + frDate(q.valide_jusqu)],
     conditions: q.notes,
+    mentions: q.entreprise && q.entreprise.eDechets,
     signature: true,
     fichier: 'devis-' + q.numero
   }));
@@ -1431,7 +1508,7 @@ function quotePDF(){
 
 function invoicePDF(f){
   makePDF(Object.assign({}, f, {
-    titre: 'FACTURE',
+    titre: isAcompte(f) ? 'FACTURE D\'ACOMPTE' : 'FACTURE',
     infos: ['Date : ' + frDate(f.date_facture), 'Échéance : ' + frDate(f.echeance), f.devis_numero ? 'Devis n° ' + f.devis_numero : ''].filter(Boolean),
     // Les factures créées avant l'ajout des conditions de facture reprennent celles du devis
     conditions: 'eCondFacture' in f.entreprise ? f.entreprise.eCondFacture : f.notes,
@@ -1658,7 +1735,10 @@ async function openQuote(id){
 }
 
 async function convertQuote(row){
-  if (!confirm('Créer la facture du devis ' + row.numero + ' ?\nUne facture émise ne peut plus être modifiée ni supprimée.')) return;
+  const acomptes = acomptesOf(row.id).filter(a => remainingHT(a) > 0.005);
+  if (!confirm('Créer la facture ' + (acomptes.length ? 'finale ' : '') + 'du devis ' + row.numero + ' ?'
+    + (acomptes.length ? '\nLes acomptes déjà facturés (' + acomptes.map(a => a.numero).join(', ') + ') y seront déduits.' : '')
+    + '\nUne facture émise ne peut plus être modifiée ni supprimée.')) return;
   // Enregistre d'abord les modifications en cours si ce devis est ouvert
   if (currentDevis && currentDevis.id === row.id && !await saveQuote()) return;
   const today = new Date();
@@ -1789,6 +1869,11 @@ const DEVIS_LABELS = {brouillon: 'Brouillon', envoye: 'Envoyé', accepte: 'Accep
 const FACT_LABELS = {emise: 'À payer', retard: 'En retard', payee: 'Payée', annulee: 'Annulée', avoir: 'Avoir', rembourse: 'Avoir remboursé'};
 // Avoirs : enregistrés avec les factures (type « avoir »), reliés à leur facture par avoir_de
 const isAvoir = f => f.type === 'avoir';
+const isAcompte = f => f.type === 'acompte';
+// Facture finale d'un devis (ni avoir ni acompte)
+const finalInvoiceOf = devisId => store.factures.find(f => f.devis_id === devisId && !isAvoir(f) && !isAcompte(f));
+const acomptesOf = devisId => store.factures.filter(f => f.devis_id === devisId && isAcompte(f)).sort((a, b) => a.numero.localeCompare(b.numero));
+const factTitle = f => (isAvoir(f) ? 'Avoir ' : isAcompte(f) ? 'Facture d\'acompte ' : 'Facture ') + f.numero;
 const invoicesOnly = () => store.factures.filter(f => !isAvoir(f));
 const avoirsOf = f => store.factures.filter(a => isAvoir(a) && a.avoir_de === f.id);
 // Reste dû TTC d'une facture, une fois ses avoirs déduits
@@ -1934,7 +2019,7 @@ function renderAll(){
   // Met à jour le panneau ouvert avec les données fraîches
   refreshSuggest();
   if (panelState && panelState.type === 'biblio') renderLibList();
-  else if (panelState && panelState.type !== 'avoirForm'){
+  else if (panelState && !['avoirForm', 'acompteForm', 'ia'].includes(panelState.type)){
     const list = panelState.type === 'devis' ? store.devis : store.factures;
     const row = list.find(r => r.id === panelState.id);
     if (row) (panelState.type === 'devis' ? showDevis : showFacture)(row.id);
@@ -1994,7 +2079,7 @@ function renderFactures(){
   $('factTable').hidden = !rows.length;
   $('factRows').replaceChildren(...rows.slice(pages.factures * PAGE_SIZE, (pages.factures + 1) * PAGE_SIZE).map(f => {
     const tr = el('tr', {onclick: () => showFacture(f.id)},
-      el('td', {className: 'mono', textContent: f.numero}), el('td', {}, customer(f.client.cNom)),
+      el('td', {className: 'mono'}, f.numero, ...(isAcompte(f) ? [' ', el('span', {className: 'tag', textContent: 'Acompte'})] : [])), el('td', {}, customer(f.client.cNom)),
       el('td', {className: 'hide-sm', textContent: frDate(f.date_facture)}), el('td', {className: 'hide-sm', textContent: frDate(f.echeance)}),
       el('td', {}, badge(factState(f), FACT_LABELS)), el('td', {className: 'num' + (isAvoir(f) ? ' neg' : ''), textContent: amountText(f)}));
     tr.dataset.id = f.id;
@@ -2052,7 +2137,7 @@ function renderDashboard(){
   $('dashDue').replaceChildren(...due.map(f => {
     const late = factState(f) === 'retard', n = Math.abs(daysBetween(today(), f.echeance));
     return el('tr', {onclick: () => showFacture(f.id)},
-      el('td', {className: 'mono', textContent: f.numero}), el('td', {}, customer(f.client.cNom)),
+      el('td', {className: 'mono'}, f.numero, ...(isAcompte(f) ? [' ', el('span', {className: 'tag', textContent: 'Acompte'})] : [])), el('td', {}, customer(f.client.cNom)),
       el('td', {className: 'hide-sm', textContent: late ? 'Échue depuis ' + plural(n, 'jour') : n ? 'Dans ' + plural(n, 'jour') : 'Aujourd\'hui'}),
       el('td', {}, badge(factState(f), FACT_LABELS)), el('td', {className: 'num', textContent: fmt(remainingTTC(f))}));
   }));
@@ -2270,7 +2355,8 @@ const frDateTime = s => s ? new Date(s).toLocaleString('fr-FR', {dateStyle: 'sho
 function showDevis(id){
   const r = store.devis.find(x => x.id === id);
   if (!r) return;
-  const billed = r.statut === 'facture', facture = store.factures.find(f => f.devis_id === r.id && !isAvoir(f));
+  const billed = r.statut === 'facture', facture = finalInvoiceOf(r.id), acomptes = acomptesOf(r.id);
+  const acompteHT = acomptes.reduce((s, a) => s + remainingHT(a), 0);
   let statut;
   if (billed) statut = badge('facture', DEVIS_LABELS);
   else {
@@ -2285,14 +2371,17 @@ function showDevis(id){
     };
   }
   const actions = el('div', {className: 'pactions'});
-  if (!billed) actions.append(el('button', {className: 'primary', textContent: 'Convertir en facture', onclick: () => convertQuote(r)}));
+  if (!billed) actions.append(
+    el('button', {className: 'primary', textContent: acomptes.length ? 'Facture finale' : 'Convertir en facture', onclick: () => convertQuote(r)}),
+    el('button', {id: 'acompteBtn', textContent: 'Facture d\'acompte', onclick: () => openAcompteForm(r)}));
   actions.append(
     el('button', {onclick: () => { openQuote(r.id); }}, svgIcon(ICONS.edit), 'Ouvrir dans l\'éditeur'),
     el('button', {className: 'icon', title: 'Télécharger le PDF', ariaLabel: 'Télécharger le PDF', onclick: () => devisPDF(r)}, svgIcon(ICONS.download)));
-  if (!billed) actions.append(el('button', {className: 'del', textContent: 'Supprimer', onclick: () => deleteQuote(r)}));
+  if (!billed && !acomptes.length) actions.append(el('button', {className: 'del', textContent: 'Supprimer', onclick: () => deleteQuote(r)}));
 
   const history = el('ul', {className: 'timeline'}, histEvent('file', '', 'Devis créé', frDateTime(r.created_at)));
   if (r.updated_at && r.updated_at.slice(0, 16) !== r.created_at.slice(0, 16)) history.append(histEvent('edit', '', 'Devis modifié', frDateTime(r.updated_at)));
+  acomptes.forEach(a => history.append(histEvent('file', '', 'Facture d\'acompte ' + a.numero + ' : ' + fmt(a.total_ttc), frDate(a.date_facture))));
   if (facture) history.append(histEvent('check', 'ok', 'Facturé : ' + facture.numero, frDate(facture.date_facture)));
 
   const billedLink = facture ? el('a', {href: '#', textContent: facture.numero, onclick: e => { e.preventDefault(); showFacture(facture.id); }}) : null;
@@ -2300,7 +2389,10 @@ function showDevis(id){
     block(null, el('div', {className: 'pcust'}, avatar(r.client.cNom), r.client.cNom || 'Client sans nom'),
       ...(r.entreprise.eFranchise === '1' ? [kv('Montant', fmt(r.total_ttc))] : [kv('Montant TTC', fmt(r.total_ttc)), kv('Montant HT', fmt(r.total_ht))]),
       kv('Date', frDate(r.date_devis)), kv('Valable jusqu\'au', frDate(r.valide_jusqu) || '—'),
-      kv('Statut', statut), ...(billedLink ? [kv('Facture', billedLink)] : []), actions),
+      kv('Statut', statut), ...(billedLink ? [kv('Facture', billedLink)] : []),
+      ...(acomptes.length ? [kv('Acomptes', el('span', {className: 'links'}, ...acomptes.map(a => el('a', {href: '#', textContent: a.numero, onclick: e => { e.preventDefault(); showFacture(a.id); }})))),
+        ...(billed ? [] : [kv('Reste à facturer' + (r.entreprise.eFranchise === '1' ? '' : ' HT'), fmt(Number(r.total_ht) - acompteHT))])] : []),
+      actions),
     block('Prestations', ...lineList(r.lignes)),
     block('Historique', history));
 }
@@ -2346,7 +2438,7 @@ function showFacture(id){
 
   const history = el('ul', {className: 'timeline'});
   if (devis) history.append(histEvent('file', '', 'Devis ' + devis.numero + ' créé', frDateTime(devis.created_at)));
-  history.append(histEvent('file', '', 'Facture émise', frDate(f.date_facture)));
+  history.append(histEvent('file', '', isAcompte(f) ? 'Facture d\'acompte émise' : 'Facture émise', frDate(f.date_facture)));
   avoirs.forEach(a => history.append(histEvent('undo', 'avoir', 'Avoir ' + a.numero + ' : − ' + fmt(a.total_ttc), frDate(a.date_facture) + (a.motif ? ' · ' + a.motif : ''))));
   if (state === 'annulee') history.append(histEvent('undo', 'avoir', 'Facture entièrement annulée par avoir', ''));
   else if (paid) history.append(histEvent('check', 'ok', 'Facture payée', f.payee_le
@@ -2359,7 +2451,7 @@ function showFacture(id){
   if (state !== 'annulee') actions.append(toggle);
   if (rest > 0.005) actions.append(el('button', {id: 'avoirBtn', onclick: () => openAvoirForm(f)}, svgIcon(ICONS.undo), 'Créer un avoir'));
 
-  openPanel({type: 'factures', id: f.id}, 'Facture ' + f.numero,
+  openPanel({type: 'factures', id: f.id}, factTitle(f),
     block(null, el('div', {className: 'pcust'}, avatar(f.client.cNom), f.client.cNom || 'Client sans nom'),
       ...(franchise ? [kv('Montant', fmt(f.total_ttc))] : [kv('Montant TTC', fmt(f.total_ttc)), kv('Montant HT', fmt(f.total_ht))]),
       ...(avoirs.length ? [kv('Avoirs', avoirLinks), kv('Reste dû' + (franchise ? '' : ' TTC'), fmt(rest))] : []),
@@ -2406,6 +2498,79 @@ function showAvoir(a){
     block('Historique', history));
 }
 
+// Facture d'acompte sur un devis : un pourcentage ou un montant, déduit ensuite de la facture finale
+function openAcompteForm(r){
+  const franchise = r.entreprise.eFranchise === '1', rate = Number(r.tva) / 100;
+  const already = acomptesOf(r.id).reduce((s, a) => s + remainingHT(a), 0);
+  const rest = round2(Number(r.total_ht) - already);
+  const money = ht => franchise ? fmt(ht) : fmt(ht) + ' HT · ' + fmt(round2(ht) + round2(ht * rate)) + ' TTC';
+  const mode = {value: 'pct'};
+  const pct = el('input', {id: 'acPct', type: 'number', min: '1', max: '99', step: '1', value: '30', oninput: () => { pick('pct'); update(); }});
+  const amount = el('input', {id: 'acMontant', type: 'number', min: '0', step: '0.01', placeholder: '0,00', oninput: () => { pick('montant'); update(); }});
+  const radios = {};
+  const pick = v => { mode.value = v; radios[v].checked = true; };
+  const radio = (v, label, input) => {
+    radios[v] = el('input', {type: 'radio', name: 'acMode', value: v, checked: v === 'pct', onchange: () => { mode.value = v; update(); }});
+    return el('label', {className: 'check'}, radios[v], el('span', {}, el('strong', {textContent: label}), el('span', {className: 'acin'}, input)));
+  };
+  const libelle = el('input', {id: 'acLibelle'});
+  let libelleEdited = false;
+  libelle.oninput = () => { libelleEdited = true; };
+  const date = el('input', {type: 'date', id: 'acDate', value: today()});
+  const due = el('input', {type: 'date', id: 'acEcheance', value: today()});
+  date.oninput = () => { if (due.value < date.value) due.value = date.value; };
+  const total = el('strong', {id: 'acTotal'});
+  const ht = () => round2(mode.value === 'pct' ? Number(r.total_ht) * (parseFloat(pct.value) || 0) / 100 : parseFloat(amount.value) || 0);
+  function update(){
+    const v = ht();
+    total.textContent = money(v);
+    const over = v > rest - 0.01;
+    total.classList.toggle('bad', over);
+    $('acOver').hidden = !over;
+    $('acCreate').disabled = v <= 0 || over;
+    if (!libelleEdited) libelle.value = 'Acompte' + (mode.value === 'pct' && parseFloat(pct.value) ? ' de ' + String(parseFloat(pct.value)).replace('.', ',') + ' %' : '')
+      + ' sur le devis n° ' + r.numero + ' du ' + frDate(r.date_devis);
+  }
+
+  openPanel({type: 'acompteForm', id: r.id}, 'Acompte sur le devis ' + r.numero,
+    block(null,
+      el('p', {className: 'hint', style: 'margin:0 0 12px', textContent: 'La facture d\'acompte suit la numérotation des factures. Elle sera déduite automatiquement de la facture finale du devis.'}),
+      kv('Devis', money(Number(r.total_ht))),
+      ...(already > 0.005 ? [kv('Acomptes déjà facturés', money(already))] : []),
+      kv('Reste à facturer', money(rest))),
+    block('Montant de l\'acompte',
+      el('div', {className: 'avmodes'},
+        radio('pct', 'Pourcentage du devis (%)', pct),
+        radio('montant', 'Montant' + (franchise ? '' : ' HT') + ' (€)', amount))),
+    block('Informations',
+      el('div', {className: 'field', style: 'margin-top:0'}, el('label', {htmlFor: 'acLibelle', textContent: 'Libellé sur la facture'}), libelle),
+      el('div', {className: 'grid', style: 'margin-top:12px'},
+        el('div', {}, el('label', {htmlFor: 'acDate', textContent: 'Date de la facture'}), date),
+        el('div', {}, el('label', {htmlFor: 'acEcheance', textContent: 'Échéance'}), due))),
+    el('div', {className: 'libfoot avfoot'},
+      el('div', {}, el('small', {className: 'hint', textContent: 'Montant de l\'acompte', style: 'display:block;margin:0'}), total,
+        el('small', {id: 'acOver', className: 'hint bad', hidden: true, textContent: 'Le total des acomptes doit rester inférieur au montant du devis.', style: 'display:block;margin:0'})),
+      el('button', {className: 'ghost', textContent: 'Annuler', onclick: () => showDevis(r.id)}),
+      el('button', {id: 'acCreate', className: 'primary', textContent: 'Créer la facture d\'acompte', onclick: async () => {
+        const v = ht();
+        if (v <= 0) return;
+        if (due.value && due.value < date.value){ toast('L\'échéance ne peut pas précéder la date de la facture.', true); return; }
+        if (!confirm('Créer la facture d\'acompte de ' + money(v) + ' sur le devis ' + r.numero + ' ?\nUne facture émise ne peut plus être modifiée ni supprimée.')) return;
+        const res = await sb.rpc('creer_acompte', {p_devis_id: r.id, p_montant_ht: v, p_libelle: libelle.value.trim(), p_date: date.value || today(), p_echeance: due.value || date.value || today()});
+        if (res.error){
+          if (res.error.code === 'PGRST202' || /creer_acompte/.test(res.error.message || '')) toast('Pour créer des factures d\'acompte, relancez supabase/schema.sql dans Supabase.', true);
+          else toast('Facture d\'acompte impossible : ' + errorText(res.error), true);
+          return;
+        }
+        const f = res.data;
+        invoicePDF(f);
+        toast('Facture d\'acompte ' + f.numero + ' créée et téléchargée.');
+        await refreshLists();
+        showFacture(f.id);
+      }})));
+  update();
+}
+
 // Formulaire de création d'un avoir : annulation du reste dû, ou avoir partiel (lignes, remise)
 const MOTIFS = ['Erreur de facturation', 'Annulation de la commande', 'Geste commercial', 'Retour de marchandise', 'Prestation non réalisée', 'Remise accordée'];
 function openAvoirForm(f){
@@ -2421,7 +2586,7 @@ function openAvoirForm(f){
   };
 
   // Lignes de la facture : à cocher, quantité ajustable (au plus celle facturée)
-  const rows = f.lignes.map((l, i) => {
+  const rows = f.lignes.filter(l => Number(l.p) >= 0).map((l, i) => {
     const box = el('input', {type: 'checkbox', onchange: update});
     box.setAttribute('aria-label', l.d);
     const q = el('input', {type: 'number', min: '0', max: String(l.q), step: 'any', value: String(l.q), oninput: () => { box.checked = parseFloat(q.value) > 0; update(); }});
@@ -2443,7 +2608,7 @@ function openAvoirForm(f){
   function chosenLines(){
     if (mode.value === 'total'){
       // Sans avoir précédent : on reprend les lignes ; sinon une ligne pour le solde
-      return avoirs.length ? [{d: 'Annulation du solde de la facture ' + f.numero, q: 1, p: restHT}]
+      return avoirs.length || f.lignes.some(l => Number(l.p) < 0) ? [{d: (avoirs.length ? 'Annulation du solde de la facture ' : 'Annulation de la facture ') + f.numero, q: 1, p: restHT}]
         : f.lignes.map(l => Object.assign({}, l));
     }
     const out = rows.filter(r => r.box.checked && parseFloat(r.q.value) > 0)
@@ -3101,7 +3266,7 @@ $('pdfBar').onclick = () => ($('invoicePdf').hidden ? $('pdf') : $('invoicePdf')
 $('invoicePdf').onclick = async () => {
   const rows = await db(sb.from('factures').select('*').eq('devis_id', currentDevis.id), 'Lecture de la facture impossible');
   if (!rows) return;
-  const f = rows.find(r => !isAvoir(r));
+  const f = rows.find(r => !isAvoir(r) && !isAcompte(r));
   if (f) invoicePDF(f);
   else toast('Facture introuvable pour ce devis.', true);
 };
@@ -3109,8 +3274,8 @@ $('save').onclick = saveQuote;
 $('reset').onclick = () => { newQuote(); toast(''); };
 
 const entreprises = profileManager({key:'profiles', type:'entreprise',
-  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture','eFranchise'],
-  onChange: applyFranchise,
+  fields:['eNom','eSiret','eEmail','eTel','eAdr','eForme','eCapital','eRcs','eTvaIntra','eDelai','eAssurance','eCondFacture','eFranchise','eDechets','eLogo'],
+  onChange: () => { applyFranchise(); showLogo(); },
   select:'profile', addBtn:'addProfile', delBtn:'delProfile', defaultName:'Entreprise', legacy:true,
   defaults: {eDelai: '30', eCondFacture: 'Paiement par virement à la date d\'échéance indiquée.'}});
 const clients = profileManager({key:'clients', type:'client', fields:['cNom','cEmail','cAdr','cSiren'],

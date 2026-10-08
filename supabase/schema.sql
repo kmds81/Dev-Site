@@ -115,6 +115,8 @@ revoke all on public.compteurs_factures from anon, authenticated;
 
 -- Transforme un devis en facture : attribue le numéro suivant (F-2026-001…),
 -- copie le devis dans la facture et passe le devis au statut « facture ».
+-- Les factures d'acompte du devis (moins leurs avoirs) sont déduites : une ligne négative
+-- par acompte, et les totaux de la facture sont nets des acomptes.
 create or replace function public.convertir_devis_en_facture(
   p_devis_id uuid,
   p_date date default current_date,
@@ -128,8 +130,12 @@ declare
   uid uuid := auth.uid();
   d public.devis;
   f public.factures;
+  a record;
   v_annee int := extract(year from p_date)::int;
   n int;
+  v_lignes jsonb;
+  v_ht numeric;
+  v_tva numeric;
 begin
   if uid is null then
     raise exception 'Connexion requise';
@@ -146,6 +152,29 @@ begin
     raise exception 'Ce devis a déjà été facturé';
   end if;
 
+  v_lignes := d.lignes;
+  v_ht := d.total_ht;
+  v_tva := d.total_tva;
+  for a in
+    select ac.numero, ac.date_facture,
+      ac.total_ht - coalesce((select sum(av.total_ht) from public.factures av where av.avoir_de = ac.id), 0) as ht,
+      ac.total_tva - coalesce((select sum(av.total_tva) from public.factures av where av.avoir_de = ac.id), 0) as tva
+    from public.factures ac
+    where ac.devis_id = d.id and ac.user_id = uid and ac.type = 'acompte'
+    order by ac.numero
+  loop
+    if a.ht > 0 then
+      v_lignes := v_lignes || jsonb_build_array(jsonb_build_object(
+        'd', 'Acompte déjà facturé : facture n° ' || a.numero || ' du ' || to_char(a.date_facture, 'DD/MM/YYYY'),
+        'q', 1, 'p', -a.ht));
+      v_ht := v_ht - a.ht;
+      v_tva := v_tva - a.tva;
+    end if;
+  end loop;
+  if v_ht <= 0 then
+    raise exception 'Les acomptes dépassent le montant du devis';
+  end if;
+
   insert into public.compteurs_factures as c (user_id, annee, dernier)
   values (uid, v_annee, 1)
   on conflict (user_id, annee) do update set dernier = c.dernier + 1
@@ -154,7 +183,7 @@ begin
   insert into public.factures (user_id, devis_id, devis_numero, numero, date_facture, echeance,
     entreprise, client, lignes, tva, notes, total_ht, total_tva, total_ttc)
   values (uid, d.id, d.numero, 'F-' || v_annee || '-' || lpad(n::text, 3, '0'), p_date, p_echeance,
-    d.entreprise, d.client, d.lignes, d.tva, d.notes, d.total_ht, d.total_tva, d.total_ttc)
+    d.entreprise, d.client, v_lignes, d.tva, d.notes, v_ht, v_tva, v_ht + v_tva)
   returning * into f;
 
   update public.devis set statut = 'facture', updated_at = now() where id = d.id;
@@ -171,7 +200,7 @@ grant execute on function public.convertir_devis_en_facture(uuid, date, date) to
 -- (AV-2026-001…), et, comme une facture, il ne peut être ni modifié ni supprimé.
 alter table public.factures add column if not exists type text not null default 'facture';
 alter table public.factures drop constraint if exists factures_type_check;
-alter table public.factures add constraint factures_type_check check (type in ('facture', 'avoir'));
+alter table public.factures add constraint factures_type_check check (type in ('facture', 'avoir', 'acompte'));
 alter table public.factures add column if not exists avoir_de uuid references public.factures on delete restrict;
 alter table public.factures add column if not exists motif text;
 
@@ -213,7 +242,7 @@ begin
     raise exception 'Connexion requise';
   end if;
   select * into f from public.factures where id = p_facture_id and user_id = uid for update;
-  if not found or f.type <> 'facture' then
+  if not found or f.type not in ('facture', 'acompte') then
     raise exception 'Facture introuvable';
   end if;
   if p_date < f.date_facture then
@@ -290,3 +319,81 @@ $$;
 
 revoke execute on function public.ia_consommer() from public, anon;
 grant execute on function public.ia_consommer() to authenticated;
+
+-- ---- Factures d'acompte ----
+-- Une facture d'acompte porte sur une partie d'un devis (ex. 30 % à la commande). Elle suit la
+-- numérotation des factures (F-2026-…) et sera déduite de la facture finale du devis.
+create or replace function public.creer_acompte(
+  p_devis_id uuid,
+  p_montant_ht numeric,
+  p_libelle text default '',
+  p_date date default current_date,
+  p_echeance date default current_date
+) returns public.factures
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  d public.devis;
+  f public.factures;
+  v_annee int := extract(year from p_date)::int;
+  n int;
+  v_ht numeric := round(p_montant_ht, 2);
+  v_tva numeric;
+  deja numeric;
+begin
+  if uid is null then
+    raise exception 'Connexion requise';
+  end if;
+  if p_echeance < p_date then
+    raise exception 'La date d''échéance doit suivre la date de facture';
+  end if;
+  select * into d from public.devis where id = p_devis_id and user_id = uid for update;
+  if not found then
+    raise exception 'Devis introuvable';
+  end if;
+  if d.statut = 'facture' then
+    raise exception 'Ce devis a déjà été facturé';
+  end if;
+  if v_ht is null or v_ht <= 0 then
+    raise exception 'Le montant de l''acompte doit être positif';
+  end if;
+  -- Acomptes déjà facturés sur ce devis, moins leurs avoirs : il doit rester un solde à facturer
+  select coalesce(sum(ac.total_ht - coalesce((select sum(av.total_ht) from public.factures av where av.avoir_de = ac.id), 0)), 0)
+    into deja from public.factures ac where ac.devis_id = d.id and ac.user_id = uid and ac.type = 'acompte';
+  if deja + v_ht > d.total_ht - 0.01 then
+    raise exception 'Les acomptes dépassent le montant du devis';
+  end if;
+  v_tva := round(v_ht * d.tva / 100, 2);
+
+  insert into public.compteurs_factures as c (user_id, annee, dernier)
+  values (uid, v_annee, 1)
+  on conflict (user_id, annee) do update set dernier = c.dernier + 1
+  returning dernier into n;
+
+  insert into public.factures (user_id, type, devis_id, devis_numero, numero, date_facture, echeance,
+    entreprise, client, lignes, tva, notes, total_ht, total_tva, total_ttc)
+  values (uid, 'acompte', d.id, d.numero, 'F-' || v_annee || '-' || lpad(n::text, 3, '0'), p_date, p_echeance,
+    d.entreprise, d.client,
+    jsonb_build_array(jsonb_build_object('d', coalesce(nullif(trim(p_libelle), ''), 'Acompte sur le devis n° ' || d.numero), 'q', 1, 'p', v_ht)),
+    d.tva, d.notes, v_ht, v_tva, v_ht + v_tva)
+  returning * into f;
+
+  -- Un devis sur lequel on facture un acompte est accepté
+  if d.statut in ('brouillon', 'envoye') then
+    update public.devis set statut = 'accepte', updated_at = now() where id = d.id;
+  end if;
+  return f;
+end;
+$$;
+
+revoke execute on function public.creer_acompte(uuid, numeric, text, date, date) from public, anon;
+grant execute on function public.creer_acompte(uuid, numeric, text, date, date) to authenticated;
+
+-- Un devis qui a des factures d'acompte ne peut plus être supprimé.
+drop policy if exists "suppression devis" on public.devis;
+create policy "suppression devis" on public.devis for delete to authenticated
+  using (user_id = auth.uid() and statut <> 'facture'
+    and not exists (select 1 from public.factures fa where fa.devis_id = devis.id));
