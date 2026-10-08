@@ -196,6 +196,8 @@ const askAI = (system: string, tool: Tool, content: string) =>
 
 async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  // Vérification depuis le navigateur : indique l'IA utilisée (jamais la clé)
+  if (req.method === 'GET') return reply(405, { error: 'Méthode non autorisée', ia: PROVIDER || 'aucune clé' });
   if (req.method !== 'POST') return reply(405, { error: 'Méthode non autorisée' });
   if (!PROVIDER) return reply(500, { error: 'Clé de l\'IA absente : ajoutez GEMINI_API_KEY dans les secrets des Edge Functions' });
 
@@ -250,8 +252,8 @@ async function handle(req: Request): Promise<Response> {
   } catch (e) {
     console.error(e);
     if (e instanceof AIError && [429, 503, 529].includes(e.status))
-      return reply(503, { error: 'L\'IA est momentanément saturée (limite de l\'offre gratuite). Réessayez dans une minute.', code: 'IA_SATUREE' });
-    return reply(502, { error: e instanceof Error ? e.message : String(e) });
+      return reply(503, { error: 'L\'IA (' + PROVIDER + ') est momentanément saturée (limite de l\'offre gratuite). Réessayez dans une minute.', code: 'IA_SATUREE', detail: e.message });
+    return reply(502, { error: '[' + PROVIDER + '] ' + (e instanceof Error ? e.message : String(e)) });
   }
 }
 
