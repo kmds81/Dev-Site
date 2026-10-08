@@ -98,28 +98,36 @@ du chantier (en reprenant les prix de la bibliothèque) et reformule les descrip
 une fonction Supabase, `assistant-devis`, qui garde la clé secrète : la page n'y a jamais accès.
 Chaque compte est limité à 30 demandes par jour.
 
-L'IA utilisée par défaut est **Mistral** (entreprise française), avec son offre gratuite.
+L'IA conseillée est **Google Gemini**, dont l'API a une offre gratuite (Mistral et Claude restent
+possibles, voir « Changer d'IA » plus bas).
 
 1. **Base** : relancez `supabase/schema.sql` dans **SQL Editor** (il ajoute le compteur de
    demandes).
-2. **Clé de l'IA** : sur [console.mistral.ai](https://console.mistral.ai), créez un compte,
-   choisissez l'offre gratuite **Experiment** (une vérification par téléphone est demandée),
-   puis créez une clé dans **API Keys**. Elle est secrète : ne la mettez jamais dans `index.html`.
-3. **Secret** : dans Supabase, **Edge Functions** > **Secrets**, ajoutez `MISTRAL_API_KEY`
+2. **Clé de l'IA** : sur [aistudio.google.com](https://aistudio.google.com), connectez-vous avec
+   un compte Google, puis **Get API key** > **Create API key**. Aucune carte bancaire n'est
+   demandée pour l'offre gratuite. La clé est secrète : ne la mettez jamais dans `index.html`.
+3. **Secret** : dans Supabase, **Edge Functions** > **Secrets**, ajoutez `GEMINI_API_KEY`
    avec cette clé.
 4. **Fonction** : **Edge Functions** > **Deploy a new function** > **Via Editor**. Nommez-la
    exactement `assistant-devis`, remplacez le code d'exemple par tout le contenu de
-   `supabase/functions/assistant-devis/index.ts`, puis **Deploy function**.
+   `supabase/functions/assistant-devis/index.ts`, puis **Deploy function**. Pour une mise à jour,
+   ouvrez la fonction, onglet **Code**, remplacez tout le code puis **Deploy**.
+
+Pour vérifier que la fonction est installée, ouvrez
+`https://<votre-projet>.supabase.co/functions/v1/assistant-devis` dans le navigateur : la réponse
+attendue est `{"error":"Méthode non autorisée"}`. « Requested function was not found » signifie
+qu'elle n'est pas dans ce projet, ou sous un autre nom.
 
 C'est tout : le bouton fonctionne pour tous les comptes connectés, avec votre clé (les autres
-utilisateurs n'ont pas besoin de compte Mistral). Si l'assistant répond
+utilisateurs n'ont pas besoin de compte chez le fournisseur d'IA). Si l'assistant répond
 « Invalid JWT », ouvrez la fonction, onglet **Details**, et désactivez **Verify JWT** : la fonction
 vérifie elle-même que l'utilisateur est connecté.
 
-L'offre gratuite de Mistral limite le nombre de requêtes par minute, ce qui suffit pour un usage
-personnel. En contrepartie, les données envoyées peuvent servir à améliorer leurs modèles
-(voir les réglages de confidentialité de la console Mistral). C'est pourquoi la page limite ce
-qu'elle envoie :
+L'offre gratuite de Gemini limite le nombre de demandes par minute et par jour, ce qui suffit pour
+quelques utilisateurs ; la fonction réessaie automatiquement quand la limite est atteinte. Selon les
+conditions de Google, les textes envoyés sur l'offre gratuite peuvent servir à améliorer leurs
+services (les conditions diffèrent en Europe : vérifiez-les dans Google AI Studio). C'est pourquoi la
+page limite ce qu'elle envoie :
 - seules la description du chantier, les libellés de la bibliothèque et les descriptions des lignes
   sont envoyés : jamais les fiches clients, les factures ni **les prix** (la page remet elle-même
   vos prix sur les lignes reconnues) ;
@@ -131,10 +139,17 @@ qu'elle envoie :
 Un nom qui n'est pas celui du client du devis (un voisin, un autre artisan) ne peut pas être
 reconnu à coup sûr : vérifiez l'aperçu en cas de doute.
 
-**Changer d'IA** : sans toucher au code, remplacez le secret.
-- Autre modèle Mistral : ajoutez `MISTRAL_MODEL` (par défaut `mistral-small-latest`).
-- Claude (Anthropic, payant à l'usage) : supprimez `MISTRAL_API_KEY` et ajoutez
-  `ANTHROPIC_API_KEY`, une clé créée sur [console.anthropic.com](https://console.anthropic.com).
+**Changer d'IA** : sans toucher au code, en changeant les secrets.
+- Gemini : `GEMINI_API_KEY` (et `GEMINI_MODEL` pour un autre modèle, `gemini-flash-latest` par
+  défaut).
+- Mistral : `MISTRAL_API_KEY`, une clé de [console.mistral.ai](https://console.mistral.ai). Attention,
+  les clés API Mistral ne fonctionnent qu'avec un abonnement (le plan gratuit ne permet de tester
+  que dans leur interface).
+- Claude (Anthropic, payant à l'usage) : `ANTHROPIC_API_KEY`, une clé de
+  [console.anthropic.com](https://console.anthropic.com).
+
+Si plusieurs clés sont présentes, Gemini est utilisée en priorité, puis Mistral, puis Claude. Pour
+en imposer une, ajoutez le secret `AI_PROVIDER` avec `gemini`, `mistral` ou `claude`.
 
 ## Offre gratuite ou payante
 

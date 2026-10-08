@@ -2810,7 +2810,7 @@ async function callAssistant(body){
   const msg = info.error || info.message || info.msg || '';
   const detail = ' (détail technique : ' + [error.name, status, info.code, msg || error.message].filter(Boolean).join(' · ') + ')';
   if (info.code === 'IA_SATUREE')
-    toast(msg, true);
+    toast(msg + (info.detail ? ' (détail : ' + info.detail + ')' : ''), true);
   else if (info.code === 'PGRST202')
     toast('Base pas à jour pour l\'assistant : relancez supabase/schema.sql dans Supabase.', true);
   else if (status === 404)
@@ -2893,7 +2893,7 @@ function previewButton(id, box, request){
   return el('button', {id, className: 'ghost', textContent: 'Voir ce qui sera envoyé', onclick: () => {
     const req = request();
     if (!req) return;
-    box.replaceChildren(el('p', {className: 'hint', textContent: 'Texte exact transmis à l\'IA (Mistral). Les repères entre crochets remplacent les données personnelles ; ils sont remis à leur place dans la réponse.', style: 'margin-top:12px'}),
+    box.replaceChildren(el('p', {className: 'hint', textContent: 'Texte exact transmis à l\'IA. Les repères entre crochets remplacent les données personnelles ; ils sont remis à leur place dans la réponse.', style: 'margin-top:12px'}),
       el('pre', {className: 'ia-note ia-preview', textContent: previewText(req.body)}));
   }});
 }
