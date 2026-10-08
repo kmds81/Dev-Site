@@ -255,3 +255,38 @@ $$;
 
 revoke execute on function public.creer_avoir(uuid, jsonb, text, date) from public, anon;
 grant execute on function public.creer_avoir(uuid, jsonb, text, date) to authenticated;
+
+-- ---- Assistant IA ----
+-- Nombre de demandes faites à l'assistant de rédaction (fonction assistant-devis), par jour.
+-- ia_consommer() compte une demande et renvoie false au-delà de la limite quotidienne.
+create table if not exists public.ia_usages (
+  user_id uuid not null references auth.users on delete cascade,
+  jour date not null,
+  nb int not null,
+  primary key (user_id, jour)
+);
+alter table public.ia_usages enable row level security;
+revoke all on public.ia_usages from anon, authenticated;
+
+create or replace function public.ia_consommer() returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  n int;
+begin
+  if uid is null then
+    return false;
+  end if;
+  insert into public.ia_usages as u (user_id, jour, nb)
+  values (uid, current_date, 1)
+  on conflict (user_id, jour) do update set nb = u.nb + 1
+  returning nb into n;
+  return n <= 30;  -- limite quotidienne par compte
+end;
+$$;
+
+revoke execute on function public.ia_consommer() from public, anon;
+grant execute on function public.ia_consommer() to authenticated;

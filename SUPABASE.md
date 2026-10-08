@@ -91,6 +91,34 @@ factures ou la bibliothèque de prestations), relancez simplement tout le conten
 script ne touche pas aux données existantes. Tant qu'il n'est pas relancé, la page continue de
 fonctionner, sans la nouveauté (elle prévient quand c'est le cas).
 
+## Assistant IA (facultatif)
+
+Le bouton **Assistant IA** de l'éditeur propose les lignes d'un devis à partir d'une description
+du chantier (avec les prix de la bibliothèque) et reformule les descriptions. L'IA (Claude,
+d'Anthropic) est appelée par une fonction Supabase, `assistant-devis`, qui garde la clé secrète :
+la page n'y a jamais accès. Chaque compte est limité à 30 demandes par jour.
+
+1. **Base** : relancez `supabase/schema.sql` dans **SQL Editor** (il ajoute le compteur de
+   demandes).
+2. **Clé de l'IA** : sur [console.anthropic.com](https://console.anthropic.com), créez un compte,
+   ajoutez du crédit (**Billing**), puis créez une clé dans **API Keys**. Elle commence par
+   `sk-ant-`. Elle est secrète : ne la mettez jamais dans `index.html`.
+3. **Secret** : dans Supabase, **Edge Functions** > **Secrets**, ajoutez `ANTHROPIC_API_KEY`
+   avec cette clé.
+4. **Fonction** : **Edge Functions** > **Deploy a new function** > **Via Editor**. Nommez-la
+   exactement `assistant-devis`, remplacez le code d'exemple par tout le contenu de
+   `supabase/functions/assistant-devis/index.ts`, puis **Deploy function**.
+
+C'est tout : le bouton fonctionne pour tous les comptes connectés. Si l'assistant répond
+« Invalid JWT », ouvrez la fonction, onglet **Details**, et désactivez **Verify JWT** : la fonction
+vérifie elle-même que l'utilisateur est connecté.
+
+L'IA est payée à l'usage sur votre compte Anthropic (de l'ordre de quelques centimes au plus par
+demande avec le modèle par défaut, Claude Haiku). Vous pouvez fixer une limite de dépense dans la
+console Anthropic, et changer de modèle avec un secret `ANTHROPIC_MODEL`.
+Seules la description du chantier, la bibliothèque et les descriptions des lignes sont envoyées à
+l'IA, jamais les clients.
+
 ## Offre gratuite ou payante
 
 L'offre gratuite suffit pour tester avec quelques utilisateurs, mais :
