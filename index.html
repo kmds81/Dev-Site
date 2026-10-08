@@ -2809,12 +2809,14 @@ async function callAssistant(body){
   }
   const msg = info.error || info.message || info.msg || '';
   const detail = ' (détail technique : ' + [error.name, status, info.code, msg || error.message].filter(Boolean).join(' · ') + ')';
-  if (info.code === 'PGRST202')
+  if (info.code === 'IA_SATUREE')
+    toast(msg, true);
+  else if (info.code === 'PGRST202')
     toast('Base pas à jour pour l\'assistant : relancez supabase/schema.sql dans Supabase.', true);
   else if (status === 404)
     toast('Fonction assistant-devis introuvable dans votre projet Supabase : vérifiez son nom exact et qu\'elle est bien déployée.' + detail, true);
   else if (!status)
-    toast('Impossible de joindre l\'assistant. Dans Supabase, ouvrez Edge Functions > assistant-devis > Logs : la fonction a peut-être planté au démarrage.' + detail, true);
+    toast('Impossible de joindre l\'assistant. Vérifiez que la fonction assistant-devis existe dans ce projet Supabase en ouvrant ' + SUPABASE_URL + '/functions/v1/assistant-devis (réponse attendue : « Méthode non autorisée »), puis regardez ses Logs.' + detail, true);
   else if (status === 401 && /jwt/i.test(msg))
     toast('Supabase refuse l\'appel : dans Edge Functions > assistant-devis > Details, désactivez « Verify JWT ».' + detail, true);
   else toast((msg || 'L\'assistant n\'a pas pu répondre.') + (status >= 500 ? detail : ''), true);
