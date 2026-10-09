@@ -282,6 +282,7 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .tag.warn{background:#fff4e5;color:#9a5b00}
 .libitem.libcat .txt{color:var(--ink-2)}
 .lib-count{margin:0 0 6px}
+.lib-prices{margin-top:10px;font-size:.82rem;color:var(--ink-2)}
 .libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 .libitem .tools{display:flex;opacity:.55}
 .libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
@@ -2892,6 +2893,11 @@ function libraryMetiers(){
   return [...used.filter(m => !METIERS.includes(m)).sort(), ...METIERS];
 }
 
+// Affichage des prix dans la bibliothèque (choix mémorisé dans ce navigateur)
+function libPricesShown(){
+  try { return localStorage.getItem('devis_libPrices') !== '0'; } catch(e){ return true; }
+}
+
 function openLibrary(){
   if (!lib.tab) lib.tab = frequentLines().length && !library.length ? 'frequentes' : (library[0] && library[0].metier) || 'Peinture';
   lib.selected.clear();
@@ -2908,7 +2914,11 @@ function openLibrary(){
     block(null,
       el('div', {className: 'search lib-search'}, svgIcon('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
         el('input', {id: 'libSearch', type: 'search', placeholder: 'Rechercher une prestation…', ariaLabel: 'Rechercher une prestation', oninput: renderLibList})),
-      el('div', {className: 'chips', id: 'libChips', role: 'tablist'})),
+      el('div', {className: 'chips', id: 'libChips', role: 'tablist'}),
+      el('label', {className: 'check lib-prices'}, el('input', {type: 'checkbox', id: 'libShowPrices', checked: libPricesShown(), onchange: e => {
+        try { localStorage.setItem('devis_libPrices', e.target.checked ? '1' : '0'); } catch(err){}
+        renderLibList();
+      }}), el('span', {textContent: 'Afficher les prix'}))),
     el('div', {className: 'pblock', id: 'libList'}),
     el('div', {className: 'libfoot'},
       el('button', {id: 'libAll', onclick: toggleAllLibrary}, 'Tout sélectionner'),
@@ -2983,8 +2993,10 @@ function renderLibList(){
   items.forEach(it => {
     const box = el('input', {type: 'checkbox', checked: lib.selected.has(it.key), onchange: () => { box.checked ? lib.selected.add(it.key) : lib.selected.delete(it.key); updateLibFoot(); }});
     box.setAttribute('aria-label', it.d);
-    const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, it.sub ? el('small', {textContent: it.sub}) : '')),
-      el('span', {className: 'price', textContent: (Number(it.p) ? fmt(it.p) : '—') + (it.u ? ' / ' + it.u : '')}));
+    const showPrices = $('libShowPrices').checked;
+    const sub = it.sub && !showPrices ? it.sub.replace(' · prix indicatif', '') : it.sub;
+    const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, sub ? el('small', {textContent: sub}) : '')),
+      el('span', {className: 'price', textContent: showPrices ? (Number(it.p) ? fmt(it.p) : '—') + (it.u ? ' / ' + it.u : '') : (it.u || '')}));
     if (it.item){
       row.append(el('span', {className: 'tools'},
         el('button', {className: 'ghost icon', title: 'Modifier', ariaLabel: 'Modifier', onclick: () => editLibraryItem(row, it.item)}, svgIcon(ICONS.edit)),
