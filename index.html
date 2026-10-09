@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%232f5bea'/%3E%3Cstop%20offset='1'%20stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='32'%20height='32'%20rx='8'%20fill='url%28%23g%29'/%3E%3Cpath%20d='M10.5%207.5h7.5l4.5%204.5v11.5a1%201%200%200%201-1%201h-11a1%201%200%200%201-1-1v-15a1%201%200%200%201%201-1Z'%20fill='%23fff'/%3E%3Cpath%20d='m12.6%2018.4%202.3%202.3%204.5-4.8'%20fill='none'%20stroke='%232f5bea'%20stroke-width='2.1'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -246,7 +247,20 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .line select.u,.libedit-row select.u,#libUnit{padding-left:6px;padding-right:2px}
 .line .total{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
 .line button.del{width:32px;padding:0;border-color:transparent;box-shadow:none;background:transparent}
-#lines .line{animation:fadeIn .2s ease-out}
+#lines .line,#lines .secrow{animation:fadeIn .2s ease-out}
+.line .desc{display:flex;align-items:center;gap:4px;min-width:0}
+.grip{flex:none;width:16px;text-align:center;color:var(--faint);cursor:grab;user-select:none;touch-action:none;font-size:.9rem;line-height:1}
+.grip:hover{color:var(--ink-2)}
+.secrow{display:grid;grid-template-columns:1fr 200px 32px;gap:8px;align-items:center;margin:14px 0 8px;padding:6px 0 6px;border-bottom:2px solid var(--accent-soft,#e8eefc)}
+.secrow .sdwrap{display:flex;align-items:center;gap:4px}
+.secrow input.sd{font-weight:600;background:transparent}
+.secrow .subtotal{text-align:right;font-size:.82rem;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.secrow button.del{width:32px;padding:0;border-color:transparent;box-shadow:none;background:transparent}
+.sortable-ghost{opacity:.35}
+.pline.psec{font-weight:600;border-bottom:1px solid var(--line);margin-top:6px}
+.pline.psub{color:var(--ink-2);font-size:.82rem;justify-content:flex-end;gap:12px}
+.sign-table tr.sec td{font-weight:600;background:var(--gray-soft);border-bottom:0}
+.sign-table tr.sub td{font-size:.8rem;color:var(--ink-2);text-align:right}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .totals{font-variant-numeric:tabular-nums}
 .totals div{display:flex;justify-content:space-between;padding:5px 0;color:var(--muted)}
@@ -370,6 +384,8 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
  .line .total{text-align:left;color:var(--muted)}
  .line button.lib,.line button.del{justify-self:end}
  .line.head{display:none}
+ .secrow{grid-template-columns:1fr 32px}
+ .secrow .subtotal{grid-column:1/-1;grid-row:2;text-align:left;padding-left:20px}
 }
 /* ---- Page d'accueil et connexion ---- */
 #landing{display:none;min-height:100vh;background:#fff}
@@ -800,6 +816,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
        <div id="lines"></div>
        <div class="line-actions">
         <button id="add" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Ajouter une ligne</button>
+        <button id="addSection" class="ghost" style="color:var(--accent)"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>Ajouter une section</button>
         <button id="libBtn"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5Z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg>Bibliothèque de prestations</button>
         <button id="iaBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>Assistant IA</button>
        </div>
@@ -1076,7 +1093,7 @@ function addLine(d='', q=1, p=0, u=''){
   const row = document.createElement('div');
   row.className = 'line';
   row.innerHTML = `
-   <div class="desc"><input class="d" list="prestaSuggest" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
+   <div class="desc"><span class="grip" title="Glisser pour déplacer" aria-hidden="true">⠿</span><input class="d" list="prestaSuggest" placeholder="Ex. Pose de carrelage" aria-label="Description"></div>
    <div><input class="q" type="number" min="0" step="any" aria-label="Quantité"></div>
    <div class="ucell"></div>
    <div><input class="p" type="number" min="0" step="0.01" aria-label="Prix unitaire"></div>
@@ -1246,8 +1263,38 @@ function getLines(){
   }));
 }
 
+// ---- Sections : titre (« Salle de bain »…) suivi de ses lignes, avec un sous-total ----
+const isSection = l => l.t === 'section';
+function addSection(title = ''){
+  const row = el('div', {className: 'secrow'},
+    el('div', {className: 'sdwrap'}, el('span', {className: 'grip', title: 'Glisser pour déplacer', textContent: '⠿'}),
+      el('input', {className: 'sd', value: title, placeholder: 'Titre de la section (ex. Salle de bain)', ariaLabel: 'Titre de la section'})),
+    el('span', {className: 'subtotal'}),
+    el('button', {className: 'del', title: 'Supprimer la section (les lignes restent)', ariaLabel: 'Supprimer la section', textContent: '✕', onclick: () => removeLine(row)}));
+  $('lines').appendChild(row);
+  calc();
+  return row;
+}
+// Toutes les lignes du formulaire dans l'ordre, sections comprises
+function getRows(){
+  const lines = new Map(getLines().map(l => [l.row, l]));
+  return [...$('lines').children].map(r => r.classList.contains('secrow') ? {t: 'section', d: r.querySelector('.sd').value.trim(), row: r} : lines.get(r)).filter(Boolean);
+}
+// Lignes d'un document prêtes à afficher : sections, lignes et sous-totaux
+function withSubtotals(lignes){
+  const out = [];
+  let sec = null;
+  const close = () => { if (sec) out.push({kind: 'subtotal', d: sec.d, total: sec.total}); };
+  (lignes || []).forEach(l => {
+    if (isSection(l)){ close(); sec = {d: l.d, total: 0}; out.push({kind: 'section', d: l.d}); }
+    else { out.push(Object.assign({kind: 'item'}, l)); if (sec) sec.total += l.q * l.p; }
+  });
+  close();
+  return out;
+}
+
 function totals(lignes, tauxTva){
-  const ht = lignes.reduce((s, l) => s + l.q * l.p, 0);
+  const ht = lignes.reduce((s, l) => s + (isSection(l) ? 0 : l.q * l.p), 0);
   const tva = ht * tauxTva / 100;
   return {ht, tva, ttc: ht + tva};
 }
@@ -1256,6 +1303,11 @@ function calc(){
   const lines = getLines();
   const k = priceMode() === 'ttc' ? 1 + tvaRate() : 1;
   lines.forEach(l => l.row.querySelector('.total').textContent = fmt(l.q * l.p * k));
+  // Sous-total de chaque section : ses lignes jusqu'à la section suivante
+  let sec = null, sub = 0;
+  const show = () => { if (sec) sec.querySelector('.subtotal').textContent = 'Sous-total : ' + fmt(sub * k); };
+  getRows().forEach(r => { if (isSection(r)){ show(); sec = r.row; sub = 0; } else sub += r.q * r.p; });
+  show();
   const t = totals(lines, parseFloat($('tva').value));
   animateValue($('ht'), t.ht);
   animateValue($('tvaAmt'), t.tva);
@@ -1431,7 +1483,8 @@ SAVED.forEach(i => $(i).addEventListener('input', () => localStorage.setItem('de
 
 // Données du devis affiché dans le formulaire, au format de la table devis.
 function formQuote(){
-  const lignes = getLines().filter(l => l.d || l.p).map(({d, q, u, p}) => u ? {d, q, u, p} : {d, q, p});
+  const lignes = getRows().filter(l => isSection(l) ? l.d : l.d || l.p)
+    .map(l => isSection(l) ? {t: 'section', d: l.d} : l.u ? {d: l.d, q: l.q, u: l.u, p: l.p} : {d: l.d, q: l.q, p: l.p});
   const tva = parseFloat($('tva').value);
   const t = totals(lignes, tva);
   return {
@@ -1494,7 +1547,25 @@ function makePDF(d){
   doc.setTextColor(0).setFont('helvetica','normal');
   y += 15;
 
-  d.lignes.forEach(l => {
+  withSubtotals(d.lignes).forEach(l => {
+    if (l.kind === 'section'){
+      if (y + 14 > 265){ doc.addPage(); y = 20; }
+      y += 2;
+      doc.setFillColor(238,242,252).rect(L, y - 5, R - L, 8, 'F');
+      doc.setFont('helvetica','bold').text(doc.splitTextToSize(l.d, R - L - 4)[0], L + 2, y);
+      doc.setFont('helvetica','normal');
+      y += 8;
+      return;
+    }
+    if (l.kind === 'subtotal'){
+      if (y + 6 > 265){ doc.addPage(); y = 20; }
+      doc.setFont('helvetica','bold').setFontSize(9);
+      doc.text('Sous-total ' + doc.splitTextToSize(l.d, 80)[0], 150, y, {align:'right'});
+      doc.text(fmt(l.total), R - 2, y, {align:'right'});
+      doc.setFont('helvetica','normal').setFontSize(10);
+      y += 7;
+      return;
+    }
     const lines = doc.splitTextToSize(l.d, 95);
     if (y + lines.length * 5 > 265){ doc.addPage(); y = 20; }
     doc.text(lines, L + 2, y);
@@ -1761,7 +1832,8 @@ async function saveQuote(){
   return true;
 }
 
-async function openQuote(id){
+// Ouvre un devis dans l'éditeur ; avec copy, en fait un nouveau devis (nouveau numéro, dates du jour)
+async function openQuote(id, copy){
   const d = await db(sb.from('devis').select('*').eq('id', id).single(), 'Ouverture impossible');
   if (!d) return;
   entreprises.choose(d.entreprise);
@@ -1772,9 +1844,19 @@ async function openQuote(id){
   $('tva').value = String(Number(d.tva));
   $('notes').value = d.notes;
   $('lines').innerHTML = '';
-  d.lignes.forEach(l => addLine(l.d, l.q, l.p, l.u));
-  if (!d.lignes.length) addLine();
+  d.lignes.forEach(l => isSection(l) ? addSection(l.d) : addLine(l.d, l.q, l.p, l.u));
+  if (!d.lignes.some(l => !isSection(l))) addLine();
   calc();
+  if (copy){
+    setCurrentDevis(null);
+    const validity = d.valide_jusqu && d.date_devis ? Math.max(1, daysBetween(d.date_devis, d.valide_jusqu)) : 30;
+    $('dDate').value = today();
+    $('dValid').value = isoDate(new Date(Date.now() + validity * 864e5));
+    $('dNum').value = await nextNumber();
+    toast('Copie du devis ' + d.numero + ' : nouveau devis n° ' + $('dNum').value + '. Modifiez-le (client, lignes…) puis enregistrez-le.');
+    go('editeur');
+    return;
+  }
   setCurrentDevis(d);
   toast(d.statut === 'facture'
     ? 'Devis ' + d.numero + ' ouvert. Il a été facturé : vous pouvez le télécharger, mais plus le modifier.'
@@ -2406,7 +2488,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && panelState
 const kv = (label, value) => el('div', {className: 'kv'}, el('span', {textContent: label}), typeof value === 'string' ? el('strong', {textContent: value}) : value);
 const block = (title, ...children) => el('div', {className: 'pblock'}, ...(title ? [el('h4', {textContent: title})] : []), ...children);
 const lineList = lignes => lignes.length
-  ? lignes.map(l => el('div', {className: 'pline'}, el('span', {}, l.d || '—', el('small', {textContent: String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '') + ' × ' + fmt(l.p)})), el('strong', {textContent: fmt(l.q * l.p)})))
+  ? withSubtotals(lignes).map(l => l.kind === 'section' ? el('div', {className: 'pline psec', textContent: l.d})
+    : l.kind === 'subtotal' ? el('div', {className: 'pline psub'}, el('span', {textContent: 'Sous-total ' + l.d}), el('strong', {textContent: fmt(l.total)}))
+    : el('div', {className: 'pline'}, el('span', {}, l.d || '—', el('small', {textContent: String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '') + ' × ' + fmt(l.p)})), el('strong', {textContent: fmt(l.q * l.p)})))
   : [el('p', {className: 'hint', textContent: 'Aucune prestation.'})];
 const histEvent = (icon, kind, title, when) => el('li', {}, el('span', {className: 'dot ' + kind}, svgIcon(ICONS[icon])), title, el('small', {textContent: when}));
 const frDateTime = s => s ? new Date(s).toLocaleString('fr-FR', {dateStyle: 'short', timeStyle: 'short'}) : '';
@@ -2435,6 +2519,7 @@ function showDevis(id){
     el('button', {id: 'acompteBtn', textContent: 'Facture d\'acompte', onclick: () => openAcompteForm(r)}));
   actions.append(
     el('button', {onclick: () => { openQuote(r.id); }}, svgIcon(ICONS.edit), 'Ouvrir dans l\'éditeur'),
+    el('button', {id: 'dupBtn', title: 'Créer un nouveau devis à partir de celui-ci', onclick: () => { openQuote(r.id, true); }}, svgIcon('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'), 'Dupliquer'),
     el('button', {className: 'icon', title: 'Télécharger le PDF', ariaLabel: 'Télécharger le PDF', onclick: () => devisPDF(r)}, svgIcon(ICONS.download)));
   if (!billed && !signed && !acomptes.length) actions.append(el('button', {className: 'del', textContent: 'Supprimer', onclick: () => deleteQuote(r)}));
 
@@ -2523,7 +2608,9 @@ function renderSignPage(token, q){
       el('div', {}, el('strong', {textContent: 'Client'}), [c.cNom, c.cAdr, c.cEmail].filter(Boolean).join('\n'))));
   const table = el('table', {className: 'sign-table'},
     el('thead', {}, el('tr', {}, el('th', {textContent: 'Description'}), el('th', {className: 'num', textContent: 'Qté'}), el('th', {className: 'num', textContent: 'Prix unitaire' + ht}), el('th', {className: 'num', textContent: 'Total' + ht}))),
-    el('tbody', {}, ...(q.lignes || []).map(l => el('tr', {}, el('td', {textContent: l.d}), el('td', {className: 'num', textContent: String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '')}),
+    el('tbody', {}, ...withSubtotals(q.lignes).map(l => l.kind === 'section' ? el('tr', {className: 'sec'}, el('td', {colSpan: 4, textContent: l.d}))
+      : l.kind === 'subtotal' ? el('tr', {className: 'sub'}, el('td', {colSpan: 3, textContent: 'Sous-total ' + l.d}), el('td', {className: 'num', textContent: fmt(l.total)}))
+      : el('tr', {}, el('td', {textContent: l.d}), el('td', {className: 'num', textContent: String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '')}),
       el('td', {className: 'num', textContent: fmt(l.p)}), el('td', {className: 'num', textContent: fmt(l.q * l.p)})))));
   const totals = el('div', {className: 'sign-totals'}, ...(franchise
     ? [el('div', {className: 'ttc'}, el('span', {textContent: 'Total'}), el('span', {textContent: fmt(q.total_ttc)}))]
@@ -2801,7 +2888,7 @@ function openAvoirForm(f){
     if (mode.value === 'total'){
       // Sans avoir précédent : on reprend les lignes ; sinon une ligne pour le solde
       return avoirs.length || f.lignes.some(l => Number(l.p) < 0) ? [{d: (avoirs.length ? 'Annulation du solde de la facture ' : 'Annulation de la facture ') + f.numero, q: 1, p: restHT}]
-        : f.lignes.map(l => Object.assign({}, l));
+        : f.lignes.filter(l => !isSection(l)).map(l => Object.assign({}, l));
     }
     const out = rows.filter(r => r.box.checked && parseFloat(r.q.value) > 0)
       .map(r => Object.assign({}, r.l, {q: Math.min(parseFloat(r.q.value), Number(r.l.q))}));
@@ -3266,7 +3353,7 @@ function frequentLines(){
   const m = new Map();
   [...store.devis].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')).forEach(r => (r.lignes || []).forEach(l => {
     const k = libKey(l.d);
-    if (!k) return;
+    if (!k || isSection(l)) return;
     const e = m.get(k) || {d: l.d.trim(), p: 0, u: '', n: 0};
     e.n++; e.p = Number(l.p) || e.p; e.u = l.u || e.u; e.d = l.d.trim();
     m.set(k, e);
@@ -3788,6 +3875,9 @@ function animateValue(node, to, format = fmt){
 }
 
 $('add').onclick = () => addLine();
+$('addSection').onclick = () => addSection().querySelector('.sd').focus();
+// Glisser-déposer des lignes et des sections (poignée ⠿), à la souris comme au doigt
+if (window.Sortable) Sortable.create($('lines'), {handle: '.grip', animation: 150, onEnd: calc});
 $('tva').onchange = onTvaChange;
 $('pdf').onclick = quotePDF;
 $('pdfBar').onclick = () => ($('invoicePdf').hidden ? $('pdf') : $('invoicePdf')).click();
