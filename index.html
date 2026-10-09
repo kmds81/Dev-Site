@@ -280,6 +280,9 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .linkbtn{background:none;border:0;box-shadow:none;padding:0;min-height:0;height:auto;color:var(--accent);font-size:inherit;text-decoration:underline;cursor:pointer}
 .ia-preview{font:inherit;font-size:.78rem;max-height:260px;overflow:auto}
 .tag.warn{background:#fff4e5;color:#9a5b00}
+.libitem.libcat .txt{color:var(--ink-2)}
+.lib-count{margin:0 0 6px}
+.lib-prices{margin-top:10px;font-size:.82rem;color:var(--ink-2)}
 .libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 .libitem .tools{display:flex;opacity:.55}
 .libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
@@ -2677,29 +2680,332 @@ function avoirPDF(a, f){
 
 // ---- Bibliothèque de prestations, classées par corps de métier ----
 
-const METIERS = ['Peinture', 'Plâtrerie', 'Maçonnerie', 'Démolition', 'Carrelage', 'Plomberie', 'Électricité', 'Menuiserie', 'Nettoyage', 'Autre'];
-// Unité proposée pour un exemple, d'après son libellé
-function exampleUnit(d){
-  if (/^(Protection|Nettoyage|Évacuation|Dépose des équipements|Mise en conformité|Remplacement|Création d'un|Création d'une|Démolition de la cuisine|Ouverture de mur)/.test(d)) return 'forfait';
-  if (/^Fourniture et pose (d'un|d'une|de porte|de prises|de points)/.test(d)) return 'u';
-  if (/plinthes/i.test(d)) return 'ml';
-  return 'm²';
-}
-// Exemples proposés pour démarrer (sans prix : chacun met les siens)
-const EXEMPLES = {
-  'Peinture': ['Protection des sols et du mobilier', 'Ponçage et dépoussiérage des enduits', 'Rebouchage et enduit de lissage',
-    'Application d\'une couche d\'impression', 'Application de deux couches de peinture murs (finition mate)',
-    'Application de deux couches de peinture plafonds', 'Peinture des boiseries (portes, plinthes) en deux couches'],
-  'Plâtrerie': ['Montage de cloison en plaques de plâtre', 'Doublage isolant des murs', 'Faux plafond en plaques de plâtre', 'Bandes et enduit des joints'],
-  'Maçonnerie': ['Démolition de la cuisine existante', 'Piochage du carrelage existant', 'Évacuation des gravats en déchetterie',
-    'Ouverture de mur avec pose d\'un linteau', 'Montage de cloison en carreaux de plâtre', 'Ragréage du sol'],
-  'Démolition': ['Dépose des équipements sanitaires', 'Démolition de cloison', 'Dépose du revêtement de sol', 'Évacuation des gravats en déchetterie'],
-  'Carrelage': ['Pose de carrelage au sol', 'Pose de faïence murale', 'Pose de plinthes carrelées', 'Joints et nettoyage de fin de chantier'],
-  'Plomberie': ['Fourniture et pose d\'un WC suspendu', 'Fourniture et pose d\'un meuble vasque', 'Remplacement du chauffe-eau', 'Création d\'une arrivée et d\'une évacuation d\'eau'],
-  'Électricité': ['Mise en conformité du tableau électrique', 'Fourniture et pose de prises de courant', 'Fourniture et pose de points lumineux', 'Création d\'un circuit spécialisé'],
-  'Menuiserie': ['Fourniture et pose de porte intérieure', 'Fourniture et pose de plinthes bois', 'Pose de parquet flottant'],
-  'Nettoyage': ['Nettoyage de fin de chantier']
+const METIERS = ['Peinture', 'Plâtrerie', 'Isolation', 'Maçonnerie', 'Démolition', 'Carrelage', 'Revêtements de sol', 'Plomberie',
+  'Chauffage', 'Électricité', 'Menuiserie', 'Façade', 'Couverture', 'Nettoyage', 'Autre'];
+// Catalogue de prestations courantes, avec des prix indicatifs HT (moyennes constatées en France,
+// hors Île-de-France) : à ajuster à vos propres tarifs une fois dans votre bibliothèque.
+const CATALOGUE = {
+  "Peinture": [
+    {"d": "Protection des sols et des menuiseries par film polyane et ruban adhésif", "u": "m²", "p": 3},
+    {"d": "Lessivage des murs et plafonds avant mise en peinture", "u": "m²", "p": 4},
+    {"d": "Rebouchage ponctuel des fissures et trous, ponçage", "u": "m²", "p": 6},
+    {"d": "Ratissage (enduit de lissage) deux passes sur murs, ponçage compris", "u": "m²", "p": 18},
+    {"d": "Application d'une couche d'impression (sous-couche) sur murs et plafonds", "u": "m²", "p": 7},
+    {"d": "Fourniture et application de deux couches de peinture acrylique mate sur murs", "u": "m²", "p": 22},
+    {"d": "Fourniture et application de deux couches de peinture acrylique mate sur plafonds", "u": "m²", "p": 26},
+    {"d": "Fourniture et application de deux couches de peinture satinée pièces humides (cuisine, salle de bains)", "u": "m²", "p": 25},
+    {"d": "Peinture laque sur boiseries (portes, huisseries), deux couches, par face", "u": "u", "p": 75},
+    {"d": "Peinture glycéro ou acrylique sur plinthes bois", "u": "ml", "p": 6},
+    {"d": "Peinture sur radiateur, dégraissage et deux couches", "u": "u", "p": 60},
+    {"d": "Dépose de papier peint existant, lessivage du support", "u": "m²", "p": 8},
+    {"d": "Fourniture et pose de toile de verre à peindre", "u": "m²", "p": 14},
+    {"d": "Fourniture et pose de papier peint intissé", "u": "m²", "p": 22},
+    {"d": "Main-d'œuvre peintre (taux horaire)", "u": "h", "p": 40}
+  ],
+  "Plâtrerie": [
+    {"d": "Fourniture et pose de cloison en plaques de plâtre BA13 sur ossature métallique 72/48, bandes et joints compris", "u": "m²", "p": 45},
+    {"d": "Fourniture et pose de cloison BA13 avec isolant laine minérale 45 mm (acoustique)", "u": "m²", "p": 55},
+    {"d": "Fourniture et pose de cloison en plaques de plâtre hydrofuges (H1) pour pièces humides", "u": "m²", "p": 52},
+    {"d": "Fourniture et pose de doublage collé en complexe isolant plâtre + polystyrène", "u": "m²", "p": 40},
+    {"d": "Fourniture et pose de faux plafond en plaques de plâtre BA13 sur ossature suspendue", "u": "m²", "p": 50},
+    {"d": "Fourniture et pose de coffrage en plaques de plâtre pour gaines et canalisations", "u": "ml", "p": 45},
+    {"d": "Réalisation des bandes et joints sur plaques de plâtre (trois passes)", "u": "m²", "p": 9},
+    {"d": "Enduit de lissage complet sur murs et plafonds, ponçage compris", "u": "m²", "p": 18},
+    {"d": "Rebouchage et reprise de fissures au plâtre avec bande armée", "u": "ml", "p": 15},
+    {"d": "Fourniture et pose de trappe de visite en plâtre", "u": "u", "p": 85},
+    {"d": "Fourniture et pose de corniche ou moulure en plâtre", "u": "ml", "p": 35},
+    {"d": "Fourniture et pose d'huisserie métallique dans cloison sèche", "u": "u", "p": 90},
+    {"d": "Main-d'œuvre plaquiste (taux horaire)", "u": "h", "p": 42}
+  ],
+  "Isolation": [
+    {"d": "Fourniture et soufflage de laine minérale en combles perdus, R ≥ 7", "u": "m²", "p": 25},
+    {"d": "Fourniture et pose de laine de verre en rouleaux déroulés en combles perdus, R ≥ 7", "u": "m²", "p": 30},
+    {"d": "Isolation des rampants de toiture sous chevrons, laine minérale + pare-vapeur + parement BA13", "u": "m²", "p": 70},
+    {"d": "Isolation des murs par l'intérieur, laine minérale sur ossature métallique + plaque BA13 (R ≥ 3,7)", "u": "m²", "p": 65},
+    {"d": "Fourniture et pose de doublage collé isolant PSE + plâtre 10+80 mm", "u": "m²", "p": 42},
+    {"d": "Isolation de plancher bas en sous-face par panneaux polystyrène ou laine de roche", "u": "m²", "p": 45},
+    {"d": "Isolation acoustique de cloison ou plafond, laine minérale semi-rigide", "u": "m²", "p": 22},
+    {"d": "Fourniture et pose de membrane pare-vapeur avec adhésifs d'étanchéité", "u": "m²", "p": 9},
+    {"d": "Fourniture et pose de rehausse et d'isolation de trappe d'accès aux combles", "u": "u", "p": 150},
+    {"d": "Dépose et évacuation d'ancien isolant en combles", "u": "m²", "p": 12},
+    {"d": "Calfeutrement des points singuliers (gaines, spots, conduits) par capots de protection", "u": "u", "p": 25},
+    {"d": "Fourniture et pose d'isolant mince réfléchissant multicouche", "u": "m²", "p": 20},
+    {"d": "Main-d'œuvre isolation (taux horaire)", "u": "h", "p": 42}
+  ],
+  "Maçonnerie": [
+    {"d": "Ouverture de mur porteur avec pose de linteau ou IPN, étaiement et reprise des tableaux", "u": "forfait", "p": 2500},
+    {"d": "Création d'ouverture dans cloison non porteuse en briques ou carreaux de plâtre", "u": "forfait", "p": 550},
+    {"d": "Fourniture et montage de mur en parpaings de 20 cm, mortier compris", "u": "m²", "p": 65},
+    {"d": "Fourniture et montage de cloison en carreaux de plâtre ou briques plâtrières", "u": "m²", "p": 55},
+    {"d": "Fourniture et réalisation de chape ciment traditionnelle (5 cm)", "u": "m²", "p": 35},
+    {"d": "Fourniture et coulage de dalle béton armé 12 cm sur hérisson", "u": "m²", "p": 85},
+    {"d": "Rebouchage de saignées et trémies au mortier", "u": "ml", "p": 12},
+    {"d": "Reprise d'enduit ciment sur mur intérieur", "u": "m²", "p": 40},
+    {"d": "Rebouchage de baie existante en maçonnerie", "u": "m²", "p": 120},
+    {"d": "Création de trémie dans plancher béton, toutes sujétions", "u": "forfait", "p": 1500},
+    {"d": "Scellement de seuil ou d'appui de fenêtre en béton", "u": "u", "p": 150},
+    {"d": "Fourniture et pose de regard de visite béton 40x40", "u": "u", "p": 220},
+    {"d": "Main-d'œuvre maçon (taux horaire)", "u": "h", "p": 50}
+  ],
+  "Démolition": [
+    {"d": "Installation et protection de chantier (sols, parties communes, accès)", "u": "forfait", "p": 250},
+    {"d": "Démolition de cloison en plaques de plâtre sur ossature, tri des déchets", "u": "m²", "p": 15},
+    {"d": "Démolition de cloison en briques ou carreaux de plâtre", "u": "m²", "p": 30},
+    {"d": "Dépose de carrelage au sol et de sa colle", "u": "m²", "p": 22},
+    {"d": "Dépose de faïence murale", "u": "m²", "p": 18},
+    {"d": "Dépose de revêtement de sol souple (moquette, PVC, lino)", "u": "m²", "p": 7},
+    {"d": "Dépose de parquet flottant ou stratifié avec sous-couche", "u": "m²", "p": 8},
+    {"d": "Dépose de faux plafond", "u": "m²", "p": 15},
+    {"d": "Dépose d'appareils sanitaires (WC, lavabo, baignoire, douche)", "u": "u", "p": 70},
+    {"d": "Dépose de cuisine équipée (meubles hauts et bas, plan de travail)", "u": "forfait", "p": 450},
+    {"d": "Dépose de porte intérieure avec huisserie", "u": "u", "p": 60},
+    {"d": "Démolition de chape ciment ou de dalle légère", "u": "m²", "p": 35},
+    {"d": "Évacuation des gravats en déchetterie, chargement et transport compris", "u": "m³", "p": 55},
+    {"d": "Location, mise en place et enlèvement d'une benne 10 m³ avec traitement des déchets", "u": "forfait", "p": 450},
+    {"d": "Main-d'œuvre démolition (taux horaire)", "u": "h", "p": 40}
+  ],
+  "Carrelage": [
+    {"d": "Préparation du support : primaire d'accrochage", "u": "m²", "p": 5},
+    {"d": "Pose seule de carrelage au sol collé, format jusqu'à 60x60, joints compris", "u": "m²", "p": 40},
+    {"d": "Fourniture et pose de carrelage au sol en grès cérame 60x60, colle et joints compris", "u": "m²", "p": 80},
+    {"d": "Pose seule de carrelage grand format au sol (supérieur à 60x60)", "u": "m²", "p": 55},
+    {"d": "Pose seule de faïence murale collée, joints compris", "u": "m²", "p": 42},
+    {"d": "Fourniture et pose de faïence murale, colle et joints compris", "u": "m²", "p": 80},
+    {"d": "Fourniture et application de système d'étanchéité sous carrelage (SPEC) en pièces humides", "u": "m²", "p": 30},
+    {"d": "Fourniture et pose de plinthes carrelées", "u": "ml", "p": 18},
+    {"d": "Fourniture et pose de profilés de finition (baguettes d'angle, nez de marche)", "u": "ml", "p": 15},
+    {"d": "Pose de mosaïque murale ou de frise décorative", "u": "m²", "p": 70},
+    {"d": "Réalisation de douche à l'italienne carrelée (receveur à carreler, étanchéité, siphon)", "u": "forfait", "p": 1500},
+    {"d": "Fourniture et pose de crédence carrelée de cuisine", "u": "ml", "p": 80},
+    {"d": "Réfection des joints de carrelage (dégarnissage et rejointoiement)", "u": "m²", "p": 25},
+    {"d": "Main-d'œuvre carreleur (taux horaire)", "u": "h", "p": 45}
+  ],
+  "Revêtements de sol": [
+    {"d": "Ragréage autolissant du sol, épaisseur jusqu'à 5 mm, primaire compris", "u": "m²", "p": 22},
+    {"d": "Fourniture et pose de sous-couche acoustique pour parquet ou stratifié", "u": "m²", "p": 5},
+    {"d": "Pose seule de parquet flottant ou stratifié", "u": "m²", "p": 25},
+    {"d": "Fourniture et pose de sol stratifié AC4 en pose flottante", "u": "m²", "p": 50},
+    {"d": "Fourniture et pose de parquet contrecollé chêne en pose flottante", "u": "m²", "p": 85},
+    {"d": "Fourniture et pose de parquet contrecollé chêne en pose collée", "u": "m²", "p": 100},
+    {"d": "Fourniture et pose de sol vinyle en lames clipsables (LVT)", "u": "m²", "p": 50},
+    {"d": "Fourniture et pose de sol PVC en lés collés", "u": "m²", "p": 35},
+    {"d": "Fourniture et pose de moquette en lés collés", "u": "m²", "p": 35},
+    {"d": "Ponçage et vitrification de parquet massif (trois couches)", "u": "m²", "p": 35},
+    {"d": "Fourniture et pose de plinthes bois ou MDF assorties", "u": "ml", "p": 14},
+    {"d": "Fourniture et pose de barre de seuil ou profilé de transition", "u": "u", "p": 30},
+    {"d": "Détalonnage de porte après pose de revêtement de sol", "u": "u", "p": 30},
+    {"d": "Main-d'œuvre solier (taux horaire)", "u": "h", "p": 42}
+  ],
+  "Plomberie": [
+    {"d": "Fourniture et pose de WC suspendu avec bâti-support, raccordements compris", "u": "u", "p": 950},
+    {"d": "Fourniture et pose de WC au sol avec abattant, raccordements compris", "u": "u", "p": 450},
+    {"d": "Fourniture et pose de meuble vasque 80 cm avec mitigeur", "u": "u", "p": 750},
+    {"d": "Fourniture et pose de receveur de douche extra-plat 90x120 avec bonde", "u": "u", "p": 600},
+    {"d": "Fourniture et pose de paroi de douche fixe en verre sécurit", "u": "u", "p": 450},
+    {"d": "Fourniture et pose de baignoire acrylique avec tablier et vidage", "u": "u", "p": 900},
+    {"d": "Fourniture et pose de mitigeur thermostatique de douche ou de bain", "u": "u", "p": 250},
+    {"d": "Fourniture et pose d'évier inox avec mitigeur sur meuble existant", "u": "u", "p": 350},
+    {"d": "Fourniture et pose de chauffe-eau électrique 200 L avec groupe de sécurité", "u": "u", "p": 1100},
+    {"d": "Création d'alimentation eau froide / eau chaude en multicouche", "u": "ml", "p": 40},
+    {"d": "Création d'évacuation en PVC Ø 32 à 100 mm", "u": "ml", "p": 35},
+    {"d": "Raccordement de lave-linge ou lave-vaisselle (robinet et siphon)", "u": "u", "p": 120},
+    {"d": "Mise en service de l'installation et essais d'étanchéité", "u": "forfait", "p": 120},
+    {"d": "Main-d'œuvre plombier (taux horaire)", "u": "h", "p": 50}
+  ],
+  "Chauffage": [
+    {"d": "Fourniture et pose de chaudière gaz murale à condensation, raccordements et mise en service compris", "u": "u", "p": 4000},
+    {"d": "Fourniture et pose de pompe à chaleur air/eau 8 kW, mise en service comprise", "u": "u", "p": 11000},
+    {"d": "Fourniture et pose de climatisation réversible mono-split (PAC air/air) 2,5 kW", "u": "u", "p": 2200},
+    {"d": "Fourniture et pose de radiateur acier eau chaude avec robinet thermostatique", "u": "u", "p": 500},
+    {"d": "Fourniture et pose de radiateur électrique à inertie 1500 W", "u": "u", "p": 650},
+    {"d": "Fourniture et pose de sèche-serviettes électrique", "u": "u", "p": 450},
+    {"d": "Dépose de radiateur existant avec vidange et bouchonnage", "u": "u", "p": 80},
+    {"d": "Remplacement de robinet de radiateur par robinet thermostatique", "u": "u", "p": 110},
+    {"d": "Fourniture et pose de thermostat d'ambiance programmable", "u": "u", "p": 250},
+    {"d": "Désembouage du circuit de chauffage avec injection d'inhibiteur", "u": "forfait", "p": 550},
+    {"d": "Fourniture et pose de plancher chauffant hydraulique (hors chape)", "u": "m²", "p": 55},
+    {"d": "Entretien annuel de chaudière gaz avec attestation", "u": "forfait", "p": 120},
+    {"d": "Main-d'œuvre chauffagiste (taux horaire)", "u": "h", "p": 55}
+  ],
+  "Électricité": [
+    {"d": "Fourniture et pose de tableau électrique pré-équipé 2 rangées avec disjoncteurs et interrupteurs différentiels", "u": "u", "p": 850},
+    {"d": "Fourniture et pose de prise de courant 16 A encastrée, câblage compris", "u": "u", "p": 75},
+    {"d": "Fourniture et pose d'interrupteur simple allumage encastré", "u": "u", "p": 65},
+    {"d": "Fourniture et pose d'interrupteur va-et-vient (deux points de commande)", "u": "u", "p": 110},
+    {"d": "Fourniture et pose de point lumineux DCL au plafond", "u": "u", "p": 80},
+    {"d": "Fourniture et pose de spot LED encastré", "u": "u", "p": 55},
+    {"d": "Création de circuit spécialisé 32 A (plaque de cuisson)", "u": "u", "p": 200},
+    {"d": "Création de circuit spécialisé 20 A (lave-linge, four, lave-vaisselle)", "u": "u", "p": 150},
+    {"d": "Fourniture et pose de prise RJ45 grade 2 avec câblage", "u": "u", "p": 90},
+    {"d": "Fourniture et pose de détecteur avertisseur autonome de fumée (DAAF)", "u": "u", "p": 45},
+    {"d": "Fourniture et pose de VMC simple flux hygroréglable avec bouches", "u": "u", "p": 900},
+    {"d": "Saignée, passage de gaine ICTA et rebouchage", "u": "ml", "p": 20},
+    {"d": "Mise en sécurité de l'installation électrique (liaisons équipotentielles, terre, protections)", "u": "forfait", "p": 900},
+    {"d": "Rénovation électrique complète d'un logement, mise aux normes NF C 15-100", "u": "m²", "p": 100},
+    {"d": "Main-d'œuvre électricien (taux horaire)", "u": "h", "p": 48}
+  ],
+  "Menuiserie": [
+    {"d": "Fourniture et pose de bloc-porte intérieur isoplane prépeint 83 cm", "u": "u", "p": 350},
+    {"d": "Pose seule de bloc-porte intérieur", "u": "u", "p": 180},
+    {"d": "Fourniture et pose de porte coulissante à galandage avec châssis", "u": "u", "p": 900},
+    {"d": "Fourniture et pose de fenêtre PVC double vitrage 2 vantaux 125x100 en rénovation", "u": "u", "p": 850},
+    {"d": "Fourniture et pose de porte-fenêtre PVC double vitrage 2 vantaux", "u": "u", "p": 1400},
+    {"d": "Fourniture et pose de volet roulant électrique en rénovation", "u": "u", "p": 650},
+    {"d": "Fourniture et pose de porte d'entrée isolante acier ou PVC", "u": "u", "p": 2200},
+    {"d": "Fourniture et pose de placard sur mesure avec portes coulissantes", "u": "ml", "p": 600},
+    {"d": "Fourniture et pose de plinthes bois ou MDF", "u": "ml", "p": 14},
+    {"d": "Pose de cuisine équipée (meubles, plan de travail, hors raccordements)", "u": "ml", "p": 200},
+    {"d": "Fourniture et pose de plan de travail stratifié avec découpes", "u": "ml", "p": 150},
+    {"d": "Fourniture et pose de trappe ou escalier escamotable de combles", "u": "u", "p": 550},
+    {"d": "Réglage, rabotage et remise en jeu de porte ou fenêtre", "u": "u", "p": 70},
+    {"d": "Main-d'œuvre menuisier (taux horaire)", "u": "h", "p": 45}
+  ],
+  "Façade": [
+    {"d": "Montage, location et démontage d'échafaudage de façade", "u": "m²", "p": 12},
+    {"d": "Nettoyage de façade au nettoyeur haute pression", "u": "m²", "p": 12},
+    {"d": "Traitement anti-mousse et fongicide de façade", "u": "m²", "p": 8},
+    {"d": "Hydrogommage de façade", "u": "m²", "p": 25},
+    {"d": "Traitement et rebouchage de fissures de façade au mortier, avec entoilage", "u": "ml", "p": 25},
+    {"d": "Fourniture et application de peinture façade pliolite ou siloxane, deux couches", "u": "m²", "p": 30},
+    {"d": "Fourniture et application de revêtement semi-épais (RSE) de façade", "u": "m²", "p": 38},
+    {"d": "Fourniture et projection d'enduit monocouche gratté", "u": "m²", "p": 45},
+    {"d": "Rejointoiement de façade en pierre ou brique", "u": "m²", "p": 70},
+    {"d": "Isolation thermique par l'extérieur (ITE), polystyrène 140 mm sous enduit", "u": "m²", "p": 140},
+    {"d": "Peinture d'avancée de toit et sous-face (bois ou PVC)", "u": "ml", "p": 25},
+    {"d": "Protection des menuiseries, sols et abords pendant les travaux de façade", "u": "forfait", "p": 300},
+    {"d": "Main-d'œuvre façadier (taux horaire)", "u": "h", "p": 45}
+  ],
+  "Couverture": [
+    {"d": "Démoussage et nettoyage de toiture avec traitement anti-mousse", "u": "m²", "p": 18},
+    {"d": "Application d'hydrofuge sur toiture", "u": "m²", "p": 12},
+    {"d": "Remplacement de tuiles cassées (fourniture comprise), déplacement inclus", "u": "forfait", "p": 300},
+    {"d": "Réfection complète de couverture en tuiles mécaniques, dépose et écran sous-toiture compris", "u": "m²", "p": 120},
+    {"d": "Révision de couverture : remaniement de tuiles", "u": "m²", "p": 45},
+    {"d": "Réfection de faîtage scellé au mortier", "u": "ml", "p": 80},
+    {"d": "Fourniture et pose d'écran de sous-toiture HPV", "u": "m²", "p": 20},
+    {"d": "Fourniture et pose de gouttière zinc demi-ronde avec crochets", "u": "ml", "p": 50},
+    {"d": "Fourniture et pose de gouttière PVC avec crochets", "u": "ml", "p": 30},
+    {"d": "Fourniture et pose de descente d'eaux pluviales Ø 80", "u": "ml", "p": 40},
+    {"d": "Nettoyage de gouttières et descentes", "u": "ml", "p": 8},
+    {"d": "Fourniture et pose de fenêtre de toit 78x98 avec raccord d'étanchéité", "u": "u", "p": 1100},
+    {"d": "Réfection de solin ou abergement de cheminée en zinc", "u": "forfait", "p": 650},
+    {"d": "Main-d'œuvre couvreur (taux horaire)", "u": "h", "p": 50}
+  ],
+  "Nettoyage": [
+    {"d": "Nettoyage de fin de chantier standard (sols, vitres, sanitaires, dépoussiérage)", "u": "m²", "p": 7},
+    {"d": "Nettoyage approfondi après travaux (traces de peinture, plâtre, ciment)", "u": "m²", "p": 14},
+    {"d": "Nettoyage de fin de chantier d'un appartement jusqu'à 70 m²", "u": "forfait", "p": 450},
+    {"d": "Nettoyage des vitres et menuiseries (deux faces)", "u": "m²", "p": 4},
+    {"d": "Dépoussiérage et aspiration des gravats fins en cours de chantier", "u": "h", "p": 32},
+    {"d": "Décapage de traces de colle et de laitance sur carrelage", "u": "m²", "p": 8},
+    {"d": "Nettoyage et désinfection des sanitaires et de la cuisine après travaux", "u": "forfait", "p": 150},
+    {"d": "Enlèvement des protections de chantier et des films adhésifs", "u": "forfait", "p": 100},
+    {"d": "Nettoyage des parties communes après travaux (escaliers, paliers)", "u": "forfait", "p": 120},
+    {"d": "Évacuation des déchets de chantier légers en déchetterie", "u": "forfait", "p": 150},
+    {"d": "Main-d'œuvre agent de nettoyage (taux horaire)", "u": "h", "p": 32}
+  ]
 };
+
+// ---- Recherche intelligente ----
+// Sans accents ni majuscules, mots dans n'importe quel ordre, début de mot suffisant,
+// pluriels et fautes de frappe tolérés, synonymes et abréviations du bâtiment.
+const STOP_WORDS = new Set('de des du d la le les l un une et en a au aux pour sur avec par ou dans y'.split(' '));
+const stem = w => w.length > 3 ? w.replace(/(?<=[a-z])[sx]$/, '') : w;
+const normText = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae');
+const searchTokens = s => normText(s).split(/[^a-z0-9²³]+/).filter(w => w && !STOP_WORDS.has(w)).map(stem);
+// Chaque groupe : termes équivalents (un terme de plusieurs mots doit être présent en entier)
+const SYNONYMES = [
+  ['placo', 'ba13', 'plaque platre', 'plaquiste', 'plaquisterie', 'platrerie'],
+  ['wc', 'toilette', 'cuvette'],
+  ['sdb', 'salle bain', 'salle eau'],
+  ['elec', 'electricite', 'electrique', 'electricien'],
+  ['plomberie', 'plombier', 'sanitaire'],
+  ['peinture', 'peindre', 'peintre', 'repeindre'],
+  ['carrelage', 'carreau', 'carreleur', 'faience'],
+  ['sol', 'plancher', 'parquet', 'revetement'],
+  ['cloison', 'mur', 'paroi'],
+  ['plafond', 'faux plafond', 'sous plafond'],
+  ['depose', 'demolition', 'demonter', 'enlever', 'retirer', 'arracher', 'piochage'],
+  ['evacuation', 'gravat', 'decheterie', 'dechet', 'benne'],
+  ['isolation', 'isolant', 'laine', 'doublage'],
+  ['chauffe eau', 'ballon', 'cumulus'],
+  ['radiateur', 'chauffage', 'chaudiere', 'pac', 'pompe chaleur'],
+  ['prise', 'pc', 'prise courant'],
+  ['luminaire', 'point lumineux', 'eclairage', 'spot', 'lumiere'],
+  ['tableau electrique', 'disjoncteur', 'tableau'],
+  ['douche', 'receveur', 'paroi douche'],
+  ['baignoire', 'bain'],
+  ['lavabo', 'vasque', 'meuble vasque'],
+  ['robinet', 'mitigeur', 'robinetterie'],
+  ['fenetre', 'baie', 'vitrage', 'menuiserie exterieure'],
+  ['porte', 'bloc porte', 'huisserie'],
+  ['enduit', 'ratissage', 'lissage', 'rebouchage'],
+  ['facade', 'ravalement', 'crepi', 'enduit facade'],
+  ['toiture', 'toit', 'couverture', 'tuile', 'couvreur'],
+  ['gouttiere', 'cheneau', 'descente eau pluviale', 'zinguerie'],
+  ['nettoyage', 'menage', 'nettoyer'],
+  ['protection', 'bache', 'proteger'],
+  ['ragreage', 'chape', 'ragreer'],
+  ['plinthe', 'plinthes'],
+  ['mo', 'main oeuvre', 'taux horaire']
+].map(g => g.map(searchTokens));
+
+function editDistance(a, b, max){
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++){
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++){
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+// Qualité de la correspondance d'un mot de la recherche avec un mot du texte (0 : aucune)
+function wordScore(q, t){
+  if (t === q) return 3;
+  if (t.startsWith(q)) return q.length >= 2 ? 2.5 : 0;
+  const max = q.length >= 8 ? 2 : q.length >= 4 ? 1 : 0;
+  if (!max) return 0;
+  // Faute de frappe, sur le mot entier ou sur son début (recherche en cours de saisie)
+  if (editDistance(q, t, max) <= max || (t.length > q.length && editDistance(q, t.slice(0, q.length), max) <= max)) return 1.5;
+  return 0;
+}
+const bestScore = (q, words) => words.reduce((m, t) => Math.max(m, wordScore(q, t)), 0);
+
+// Variantes d'un mot de la recherche : lui-même, puis ses synonymes
+function variants(q){
+  const out = [[q]];
+  SYNONYMES.forEach(g => { if (g.some(term => term.length === 1 && (term[0] === q || (q.length >= 3 && term[0].startsWith(q))))) g.forEach(term => out.push(term)); });
+  return out;
+}
+
+// Score d'un élément pour une recherche (0 : ne correspond pas). Tous les mots doivent correspondre.
+function searchScore(query, text, extra){
+  const qs = searchTokens(query);
+  if (!qs.length) return 0;
+  const words = searchTokens(text), more = searchTokens(extra);
+  let total = 0;
+  for (const q of qs){
+    let s = 0;
+    variants(q).forEach((term, i) => {
+      const synonym = i > 0 ? 0.8 : 1;
+      const inText = Math.min(...term.map(t => bestScore(t, words)));
+      const inExtra = Math.min(...term.map(t => bestScore(t, words.concat(more)))) * 0.6;
+      s = Math.max(s, Math.max(inText, inExtra) * synonym);
+    });
+    if (!s) return 0;
+    total += s;
+  }
+  // Bonus si la recherche apparaît telle quelle dans le libellé
+  if (normText(text).includes(normText(query).trim())) total += 2;
+  return total;
+}
 
 let library = [];                          // [{id, metier, d, u, p}]
 const lib = {tab: null, selected: new Set()};
@@ -2807,6 +3113,11 @@ function libraryMetiers(){
   return [...used.filter(m => !METIERS.includes(m)).sort(), ...METIERS];
 }
 
+// Affichage des prix dans la bibliothèque (choix mémorisé dans ce navigateur)
+function libPricesShown(){
+  try { return localStorage.getItem('devis_libPrices') !== '0'; } catch(e){ return true; }
+}
+
 function openLibrary(){
   if (!lib.tab) lib.tab = frequentLines().length && !library.length ? 'frequentes' : (library[0] && library[0].metier) || 'Peinture';
   lib.selected.clear();
@@ -2823,7 +3134,11 @@ function openLibrary(){
     block(null,
       el('div', {className: 'search lib-search'}, svgIcon('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
         el('input', {id: 'libSearch', type: 'search', placeholder: 'Rechercher une prestation…', ariaLabel: 'Rechercher une prestation', oninput: renderLibList})),
-      el('div', {className: 'chips', id: 'libChips', role: 'tablist'})),
+      el('div', {className: 'chips', id: 'libChips', role: 'tablist'}),
+      el('label', {className: 'check lib-prices'}, el('input', {type: 'checkbox', id: 'libShowPrices', checked: libPricesShown(), onchange: e => {
+        try { localStorage.setItem('devis_libPrices', e.target.checked ? '1' : '0'); } catch(err){}
+        renderLibList();
+      }}), el('span', {textContent: 'Afficher les prix'}))),
     el('div', {className: 'pblock', id: 'libList'}),
     el('div', {className: 'libfoot'},
       el('button', {id: 'libAll', onclick: toggleAllLibrary}, 'Tout sélectionner'),
@@ -2852,13 +3167,33 @@ function openLibrary(){
   $('libSearch').focus();
 }
 
+// Prestations du catalogue pas encore dans la bibliothèque
+const catalogItems = metier => (CATALOGUE[metier] || []).filter(c => !library.some(i => libKey(i.d) === libKey(c.d)))
+  .map(c => ({key: 'c:' + metier + '|' + c.d, d: c.d, u: c.u, p: c.p, cat: Object.assign({metier}, c), metier}));
+
+// Tout ce qui peut être ajouté au devis : bibliothèque, prestations fréquentes, catalogue
+function libraryCandidates(){
+  const known = new Set(library.map(i => libKey(i.d)));
+  const freq = frequentLines().filter(f => !known.has(libKey(f.d)));
+  freq.forEach(f => known.add(libKey(f.d)));
+  return [
+    ...library.map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i, metier: i.metier || 'Autre', sub: i.metier})),
+    ...freq.map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, metier: '', sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')})),
+    ...Object.keys(CATALOGUE).flatMap(catalogItems).filter(c => !known.has(libKey(c.d))).map(c => Object.assign(c, {sub: 'Catalogue · ' + c.metier + ' · prix indicatif'}))];
+}
+
 function visibleLibraryItems(){
-  const q = libKey($('libSearch') ? $('libSearch').value : '');
-  if (q) return [
-    ...library.filter(i => libKey(i.d).includes(q) || libKey(i.metier).includes(q)).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i, sub: i.metier})),
-    ...frequentLines().filter(f => libKey(f.d).includes(q) && !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}))];
+  const q = $('libSearch') ? $('libSearch').value.trim() : '';
+  if (q) return libraryCandidates()
+    .map((c, i) => ({c, i, s: searchScore(q, c.d, c.metier + ' ' + (c.cat ? 'catalogue' : ''))}))
+    .filter(r => r.s > 0)
+    // Les mieux classés d'abord ; à égalité, vos prestations avant le catalogue
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .slice(0, 60).map(r => r.c);
   if (lib.tab === 'frequentes') return frequentLines().map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}));
-  return library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i}));
+  return [
+    ...library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i})),
+    ...catalogItems(lib.tab).map(c => Object.assign(c, {sub: 'Catalogue · prix indicatif'}))];
 }
 
 function renderLibList(){
@@ -2878,18 +3213,23 @@ function renderLibList(){
   items.forEach(it => {
     const box = el('input', {type: 'checkbox', checked: lib.selected.has(it.key), onchange: () => { box.checked ? lib.selected.add(it.key) : lib.selected.delete(it.key); updateLibFoot(); }});
     box.setAttribute('aria-label', it.d);
-    const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, it.sub ? el('small', {textContent: it.sub}) : '')),
-      el('span', {className: 'price', textContent: (Number(it.p) ? fmt(it.p) : '—') + (it.u ? ' / ' + it.u : '')}));
+    const showPrices = $('libShowPrices').checked;
+    const sub = it.sub && !showPrices ? it.sub.replace(' · prix indicatif', '') : it.sub;
+    const row = el('div', {className: 'libitem'}, el('label', {}, box, el('span', {className: 'txt'}, it.d, sub ? el('small', {textContent: sub}) : '')),
+      el('span', {className: 'price', textContent: showPrices ? (Number(it.p) ? fmt(it.p) : '—') + (it.u ? ' / ' + it.u : '') : (it.u || '')}));
     if (it.item){
       row.append(el('span', {className: 'tools'},
         el('button', {className: 'ghost icon', title: 'Modifier', ariaLabel: 'Modifier', onclick: () => editLibraryItem(row, it.item)}, svgIcon(ICONS.edit)),
         el('button', {className: 'ghost icon del', title: 'Retirer de la bibliothèque', ariaLabel: 'Retirer de la bibliothèque', onclick: () => {
           if (confirm('Retirer « ' + it.item.d + ' » de la bibliothèque ?')) removeFromLibrary(it.item);
         }}, svgIcon('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'))));
-    } else if (it.freq){
+    } else {
+      // Prestation fréquente ou du catalogue : à enregistrer dans la bibliothèque (pour fixer son prix)
+      row.classList.toggle('libcat', !!it.cat);
       row.append(el('span', {className: 'tools'},
-        el('button', {className: 'ghost icon', title: 'Enregistrer dans la bibliothèque', ariaLabel: 'Enregistrer dans la bibliothèque', onclick: async () => {
-          if (await addToLibrary([{id: newId(), metier: $('libMetier').value.trim() || 'Autre', d: it.d, u: it.u || '', p: it.p}])) renderLibList();
+        el('button', {className: 'ghost icon', title: 'Enregistrer dans ma bibliothèque', ariaLabel: 'Enregistrer dans ma bibliothèque', onclick: async () => {
+          const metier = it.cat ? it.cat.metier : $('libMetier').value.trim() || 'Autre';
+          if (await addToLibrary([{id: newId(), metier, d: it.d, u: it.u || '', p: it.p}])) renderLibList();
         }}, svgIcon('<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9Z"/>'))));
     }
     list.append(row);
@@ -2899,12 +3239,14 @@ function renderLibList(){
     list.append(el('p', {className: 'hint lib-empty', textContent: q ? 'Aucune prestation ne correspond à la recherche.'
       : lib.tab === 'frequentes' ? (user ? 'Les prestations de vos devis enregistrés apparaîtront ici, des plus utilisées aux moins utilisées.' : 'Connectez-vous et enregistrez vos devis : leurs prestations apparaîtront ici.')
       : 'Aucune prestation en ' + lib.tab + ' pour l\'instant. Ajoutez les vôtres ci-dessous.'}));
+  } else if (q){
+    list.prepend(el('p', {className: 'hint lib-count', textContent: plural(items.length, 'résultat') + (items.length === 60 ? ' (les plus pertinents)' : '')}));
   }
-  // Exemples à charger pour le corps de métier affiché
-  const missing = !q && EXEMPLES[lib.tab] ? EXEMPLES[lib.tab].filter(d => !library.some(i => libKey(i.d) === libKey(d))) : [];
+  // Tout le catalogue du corps de métier affiché, d'un coup, dans la bibliothèque
+  const missing = q ? [] : catalogItems(lib.tab);
   if (missing.length) list.append(el('button', {className: 'ghost lib-examples', onclick: async () => {
-    if (await addToLibrary(missing.map(d => ({id: newId(), metier: lib.tab, d, u: exampleUnit(d), p: 0})))) renderLibList();
-  }}, '+ Ajouter ' + plural(missing.length, 'exemple') + ' de prestations en ' + lib.tab));
+    if (await addToLibrary(missing.map(c => ({id: newId(), metier: lib.tab, d: c.d, u: c.u, p: c.p})))) renderLibList();
+  }}, '+ Enregistrer ' + (missing.length > 1 ? 'les ' + missing.length + ' prestations' : 'la prestation') + ' du catalogue ' + lib.tab + ' dans ma bibliothèque'));
   updateLibFoot();
 }
 
@@ -2939,10 +3281,7 @@ function toggleAllLibrary(){
 
 // Ajoute les prestations cochées au devis, dans l'ordre de la bibliothèque
 function addSelectedToQuote(){
-  const chosen = [];
-  const push = (k, d, p, u) => { if (lib.selected.has(k)) chosen.push({d, p: Number(p) || 0, u: u || ''}); };
-  library.forEach(i => push('l:' + i.id, i.d, i.p, i.u));
-  frequentLines().forEach(f => push('f:' + libKey(f.d), f.d, f.p, f.u));
+  const chosen = libraryCandidates().filter(c => lib.selected.has(c.key)).map(c => ({d: c.d, p: Number(c.p) || 0, u: c.u || ''}));
   if (!chosen.length) return;
   // Remplace la ligne vide d'un nouveau devis plutôt que de la laisser
   getLines().filter(l => !l.d && !l.p).forEach(l => l.row.remove());
