@@ -397,3 +397,123 @@ drop policy if exists "suppression devis" on public.devis;
 create policy "suppression devis" on public.devis for delete to authenticated
   using (user_id = auth.uid() and statut <> 'facture'
     and not exists (select 1 from public.factures fa where fa.devis_id = devis.id));
+
+-- ---- Signature des devis en ligne ----
+-- Le client reçoit un lien secret (jeton aléatoire), consulte le devis sans compte et le signe :
+-- nom, signature dessinée, date, adresse IP, navigateur et empreinte du contenu sont conservés.
+-- Un devis signé passe « accepté » et ne peut plus être modifié ni supprimé.
+alter table public.devis add column if not exists signature_token uuid unique;
+alter table public.devis add column if not exists signature jsonb;
+alter table public.devis add column if not exists signe_le timestamptz;
+
+drop policy if exists "modification devis" on public.devis;
+create policy "modification devis" on public.devis for update to authenticated
+  using (user_id = auth.uid() and statut <> 'facture' and signe_le is null)
+  -- La signature ne s'écrit que par signer_devis
+  with check (user_id = auth.uid() and statut <> 'facture' and signe_le is null and signature is null);
+drop policy if exists "suppression devis" on public.devis;
+create policy "suppression devis" on public.devis for delete to authenticated
+  using (user_id = auth.uid() and statut <> 'facture' and signe_le is null
+    and not exists (select 1 from public.factures fa where fa.devis_id = devis.id));
+drop policy if exists "ajout devis" on public.devis;
+create policy "ajout devis" on public.devis for insert to authenticated
+  with check (user_id = auth.uid() and statut <> 'facture' and signe_le is null and signature is null);
+
+-- Crée (ou retrouve) le lien de signature d'un devis ; p_actif = false désactive le lien.
+create or replace function public.partager_devis(p_devis_id uuid, p_actif boolean default true)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  d public.devis;
+begin
+  select * into d from public.devis where id = p_devis_id and user_id = uid for update;
+  if not found then
+    raise exception 'Devis introuvable';
+  end if;
+  if not p_actif then
+    update public.devis set signature_token = null where id = d.id;
+    return null;
+  end if;
+  if d.signature_token is null then
+    update public.devis set signature_token = gen_random_uuid(),
+      statut = case when statut = 'brouillon' then 'envoye' else statut end, updated_at = now()
+    where id = d.id returning signature_token into d.signature_token;
+  end if;
+  return d.signature_token;
+end;
+$$;
+revoke execute on function public.partager_devis(uuid, boolean) from public, anon;
+grant execute on function public.partager_devis(uuid, boolean) to authenticated;
+
+-- Devis visible par le client grâce au lien (sans compte)
+create or replace function public.devis_a_signer(p_token uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'numero', d.numero, 'date_devis', d.date_devis, 'valide_jusqu', d.valide_jusqu, 'statut', d.statut,
+    'entreprise', d.entreprise, 'client', d.client, 'lignes', d.lignes, 'tva', d.tva, 'notes', d.notes,
+    'total_ht', d.total_ht, 'total_tva', d.total_tva, 'total_ttc', d.total_ttc,
+    'signe_le', d.signe_le,
+    'signature', case when d.signature is null then null
+      else jsonb_build_object('nom', d.signature->>'nom', 'image', d.signature->>'image') end)
+  from public.devis d
+  where p_token is not null and d.signature_token = p_token;
+$$;
+revoke execute on function public.devis_a_signer(uuid) from public;
+grant execute on function public.devis_a_signer(uuid) to anon, authenticated;
+
+-- Signature par le client
+create or replace function public.signer_devis(p_token uuid, p_nom text, p_image text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  d public.devis;
+  h json := coalesce(nullif(current_setting('request.headers', true), ''), '{}')::json;
+begin
+  select * into d from public.devis where p_token is not null and signature_token = p_token for update;
+  if not found then
+    raise exception 'Lien de signature invalide ou désactivé';
+  end if;
+  if d.signe_le is not null then
+    raise exception 'Ce devis est déjà signé';
+  end if;
+  if d.statut in ('refuse', 'facture') then
+    raise exception 'Ce devis ne peut plus être signé';
+  end if;
+  if d.valide_jusqu is not null and d.valide_jusqu < current_date then
+    raise exception 'Ce devis a expiré le %', to_char(d.valide_jusqu, 'DD/MM/YYYY');
+  end if;
+  if length(trim(coalesce(p_nom, ''))) < 2 or length(p_nom) > 120 then
+    raise exception 'Indiquez votre nom';
+  end if;
+  if p_image is null or p_image not like 'data:image/png;base64,%' or length(p_image) > 300000 then
+    raise exception 'Signature invalide';
+  end if;
+  update public.devis set
+    signe_le = now(),
+    statut = 'accepte',
+    updated_at = now(),
+    signature = jsonb_build_object(
+      'nom', trim(p_nom),
+      'image', p_image,
+      'ip', split_part(coalesce(h->>'x-forwarded-for', h->>'x-real-ip', ''), ',', 1),
+      'navigateur', left(coalesce(h->>'user-agent', ''), 300),
+      -- Empreinte du contenu signé : prouve que le devis n'a pas changé depuis
+      'empreinte', md5(d.numero || '|' || d.lignes::text || '|' || d.total_ht::text || '|' || d.total_ttc::text || '|' || coalesce(d.notes, '')))
+  where id = d.id;
+  return public.devis_a_signer(p_token);
+end;
+$$;
+revoke execute on function public.signer_devis(uuid, text, text) from public;
+grant execute on function public.signer_devis(uuid, text, text) to anon, authenticated;

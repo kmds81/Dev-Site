@@ -375,7 +375,35 @@ body:not(.authed) .auth-only,body.authed .guest-only{display:none!important}
 #landing{display:none;min-height:100vh;background:#fff}
 body.on-landing #landing{display:block}
 body.on-landing .app,body.on-landing .mobilebar{display:none!important}
-body.booting #landing,body.booting .app{visibility:hidden}
+body.booting #landing,body.booting .app,body.booting #signPage{visibility:hidden}
+#signPage{display:none;min-height:100vh;background:var(--bg,#f6f7f9)}
+body.on-sign #signPage{display:block}
+body.on-sign .app,body.on-sign .mobilebar,body.on-sign #landing{display:none!important}
+.sign-wrap{max-width:820px;margin:0 auto;padding:28px 16px 40px}
+.sign-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:16px}
+.sign-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.sign-head img{max-height:56px;max-width:180px;display:block;margin-bottom:8px}
+.sign-head h1{font-size:1.25rem;margin:0}
+.sign-head .meta{text-align:right;font-size:.86rem;color:var(--ink-2)}
+.sign-parties{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;font-size:.86rem;white-space:pre-line}
+.sign-parties strong{display:block;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:4px}
+.sign-table{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:8px}
+.sign-table th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line);padding:8px 6px}
+.sign-table td{border-bottom:1px solid var(--line);padding:8px 6px;vertical-align:top}
+.sign-table .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sign-totals{margin:12px 0 0 auto;max-width:280px;font-size:.9rem}
+.sign-totals div{display:flex;justify-content:space-between;padding:3px 0}
+.sign-totals .ttc{font-weight:600;font-size:1.05rem;border-top:1px solid var(--line);margin-top:4px;padding-top:8px}
+.sign-notes{font-size:.82rem;color:var(--ink-2);white-space:pre-line;margin-top:14px}
+.sign-pad{position:relative;border:1px dashed var(--line-2);border-radius:8px;background:#fff;touch-action:none;height:180px}
+.sign-pad canvas{width:100%;height:100%;display:block;cursor:crosshair}
+.sign-pad span{position:absolute;left:12px;bottom:8px;font-size:.76rem;color:var(--faint);pointer-events:none}
+.sign-ok{display:flex;gap:12px;align-items:center;color:#0f7a43;font-weight:600}
+.sign-ok img{max-height:70px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.sign-foot{text-align:center;font-size:.76rem;color:var(--faint)}
+.sign-link{display:flex;gap:8px;margin-top:8px}
+.sign-link input{flex:1;font-size:.78rem}
+@media (max-width:640px){.sign-parties{grid-template-columns:1fr}.sign-head .meta{text-align:left}.sign-card{padding:16px}}
 .lpage{display:none}
 body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAuth,body[data-route="inscription"] #landingAuth{display:block}
 .lwrap{max-width:1160px;margin:0 auto;padding:0 24px}
@@ -629,6 +657,14 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
    <p class="auth-foot"><a href="#/accueil">← Retour à l'accueil</a> · <a href="#/editeur">Essayer sans compte</a></p>
   </section>
  </main>
+</div>
+
+<!-- Page publique de signature d'un devis (lien envoyé au client) -->
+<div id="signPage">
+ <div class="sign-wrap">
+  <div id="signBody"><p class="hint">Chargement du devis…</p></div>
+  <p class="sign-foot">Signature électronique sécurisée · Devis &amp; Factures</p>
+ </div>
 </div>
 
 <div class="app">
@@ -1241,8 +1277,8 @@ async function nextNumber(){
 
 function setCurrentDevis(d){
   currentDevis = d;
-  const billed = !!d && d.statut === 'facture';
-  $('save').disabled = billed;
+  const billed = !!d && d.statut === 'facture', locked = billed || !!(d && d.signe_le);
+  $('save').disabled = locked;
   // Un devis facturé propose aussi le téléchargement de sa facture
   $('invoicePdf').hidden = !billed;
   $('pdf').classList.toggle('primary', !billed);
@@ -1488,7 +1524,15 @@ function makePDF(d){
   y += 28;
   if (y + footerLines.length * 4 + (d.signature ? 14 : 0) > 285){ doc.addPage(); y = 20; }
   doc.text(footerLines, L, y);
-  if (d.signature) doc.text('Bon pour accord — date et signature :', L, y + footerLines.length * 4 + 6);
+  if (d.signature){
+    const signed = d.signe && d.signe.image;
+    let y0 = y + footerLines.length * 4 + 6;
+    if (signed && y0 + 26 > 290){ doc.addPage(); y0 = 20; }
+    doc.text(signed ? 'Bon pour accord — signé électroniquement par ' + d.signe.nom + ' le ' + d.signe.quand + '.' : 'Bon pour accord — date et signature :', L, y0);
+    if (signed){
+      try { doc.addImage(d.signe.image, 'PNG', L, y0 + 2, 60, 22); } catch(err){}
+    }
+  }
 
   doc.save(d.fichier + '.pdf');
 }
@@ -1500,7 +1544,8 @@ function devisPDF(q){
     conditions: q.notes,
     mentions: q.entreprise && q.entreprise.eDechets,
     signature: true,
-    fichier: 'devis-' + q.numero
+    signe: q.signe_le && q.signature ? {nom: q.signature.nom, image: q.signature.image, quand: frDateTime(q.signe_le)} : null,
+    fichier: 'devis-' + q.numero + (q.signe_le ? '-signe' : '')
   }));
 }
 
@@ -1733,6 +1778,7 @@ async function openQuote(id){
   setCurrentDevis(d);
   toast(d.statut === 'facture'
     ? 'Devis ' + d.numero + ' ouvert. Il a été facturé : vous pouvez le télécharger, mais plus le modifier.'
+    : d.signe_le ? 'Devis ' + d.numero + ' ouvert. Il a été signé par le client : vous pouvez le télécharger, mais plus le modifier.'
     : 'Devis ' + d.numero + ' ouvert.');
   go('editeur');
 }
@@ -1781,6 +1827,7 @@ const ROUTES = {
 const LANDING = {accueil: 'Devis & Factures — devis et factures pour indépendants', connexion: 'Connexion — Devis & Factures', inscription: 'Créer un compte — Devis & Factures'};
 const currentRoute = () => {
   const r = location.hash.replace(/^#\/?/, '');
+  if (r.startsWith('signer/')) return 'signer';
   return ROUTES[r] || LANDING[r] ? r : user ? 'tableau-de-bord' : 'accueil';
 };
 // Pages réservées aux comptes : un visiteur non connecté est envoyé sur la présentation,
@@ -1789,6 +1836,15 @@ const PRIVATE = ['tableau-de-bord', 'devis', 'factures', 'compte'];
 let wantedRoute = null;
 function showRoute(){
   const r = currentRoute();
+  // Page publique de signature : ni menu ni connexion
+  document.body.classList.toggle('on-sign', r === 'signer');
+  if (r === 'signer'){
+    document.body.classList.remove('on-landing');
+    document.title = 'Signature du devis';
+    closePanel();
+    loadSignPage(location.hash.replace(/^#\/?signer\//, ''));
+    return;
+  }
   if (!user && PRIVATE.includes(r)){ wantedRoute = r; go('accueil'); return; }
   const landing = !!LANDING[r];
   document.body.classList.toggle('on-landing', landing);
@@ -2059,7 +2115,7 @@ function renderDevis(){
     const tr = el('tr', {onclick: () => showDevis(r.id)},
       el('td', {className: 'mono', textContent: r.numero}), el('td', {}, customer(r.client.cNom)),
       el('td', {className: 'hide-sm', textContent: frDate(r.date_devis)}), el('td', {className: 'hide-sm', textContent: frDate(r.valide_jusqu)}),
-      el('td', {}, badge(r.statut, DEVIS_LABELS)), el('td', {className: 'num', textContent: fmt(r.total_ttc)}));
+      el('td', {}, badge(r.statut, DEVIS_LABELS), ...(r.signe_le ? [' ', el('span', {className: 'tag', textContent: 'Signé'})] : [])), el('td', {className: 'num', textContent: fmt(r.total_ttc)}));
     tr.dataset.id = r.id;
     tr.classList.toggle('selected', !!panelState && panelState.id === r.id);
     return tr;
@@ -2358,10 +2414,10 @@ const frDateTime = s => s ? new Date(s).toLocaleString('fr-FR', {dateStyle: 'sho
 function showDevis(id){
   const r = store.devis.find(x => x.id === id);
   if (!r) return;
-  const billed = r.statut === 'facture', facture = finalInvoiceOf(r.id), acomptes = acomptesOf(r.id);
+  const billed = r.statut === 'facture', facture = finalInvoiceOf(r.id), acomptes = acomptesOf(r.id), signed = !!r.signe_le;
   const acompteHT = acomptes.reduce((s, a) => s + remainingHT(a), 0);
   let statut;
-  if (billed) statut = badge('facture', DEVIS_LABELS);
+  if (billed || signed) statut = badge(r.statut, DEVIS_LABELS);
   else {
     statut = el('select', {id: 'panelStatus', ariaLabel: 'Statut du devis'});
     Object.entries(DEVIS_LABELS).filter(([v]) => v !== 'facture').forEach(([v, t]) => statut.add(new Option(t, v)));
@@ -2380,10 +2436,11 @@ function showDevis(id){
   actions.append(
     el('button', {onclick: () => { openQuote(r.id); }}, svgIcon(ICONS.edit), 'Ouvrir dans l\'éditeur'),
     el('button', {className: 'icon', title: 'Télécharger le PDF', ariaLabel: 'Télécharger le PDF', onclick: () => devisPDF(r)}, svgIcon(ICONS.download)));
-  if (!billed && !acomptes.length) actions.append(el('button', {className: 'del', textContent: 'Supprimer', onclick: () => deleteQuote(r)}));
+  if (!billed && !signed && !acomptes.length) actions.append(el('button', {className: 'del', textContent: 'Supprimer', onclick: () => deleteQuote(r)}));
 
   const history = el('ul', {className: 'timeline'}, histEvent('file', '', 'Devis créé', frDateTime(r.created_at)));
   if (r.updated_at && r.updated_at.slice(0, 16) !== r.created_at.slice(0, 16)) history.append(histEvent('edit', '', 'Devis modifié', frDateTime(r.updated_at)));
+  if (signed) history.append(histEvent('check', 'ok', 'Signé en ligne par ' + r.signature.nom, frDateTime(r.signe_le)));
   acomptes.forEach(a => history.append(histEvent('file', '', 'Facture d\'acompte ' + a.numero + ' : ' + fmt(a.total_ttc), frDate(a.date_facture))));
   if (facture) history.append(histEvent('check', 'ok', 'Facturé : ' + facture.numero, frDate(facture.date_facture)));
 
@@ -2396,8 +2453,140 @@ function showDevis(id){
       ...(acomptes.length ? [kv('Acomptes', el('span', {className: 'links'}, ...acomptes.map(a => el('a', {href: '#', textContent: a.numero, onclick: e => { e.preventDefault(); showFacture(a.id); }})))),
         ...(billed ? [] : [kv('Reste à facturer' + (r.entreprise.eFranchise === '1' ? '' : ' HT'), fmt(Number(r.total_ht) - acompteHT))])] : []),
       actions),
+    ...(billed && !signed ? [] : [signBlock(r)]),
     block('Prestations', ...lineList(r.lignes)),
     block('Historique', history));
+}
+
+// ---- Signature en ligne ----
+const signUrl = token => pageUrl() + '#/signer/' + token;
+
+// Bloc du panneau d'un devis : lien à envoyer au client, ou signature reçue
+function signBlock(r){
+  if (r.signe_le) return block('Signature en ligne',
+    el('div', {className: 'sign-ok'}, el('img', {src: r.signature.image, alt: 'Signature'}),
+      el('span', {}, 'Signé par ' + r.signature.nom, el('small', {className: 'hint', style: 'display:block;font-weight:400;margin:2px 0 0', textContent: 'le ' + frDateTime(r.signe_le) + ' · le devis ne peut plus être modifié'}))));
+  if (!r.signature_token) return block('Signature en ligne',
+    el('p', {className: 'hint', style: 'margin:0 0 10px', textContent: 'Envoyez un lien à votre client : il consulte le devis et le signe depuis son téléphone ou son ordinateur, sans créer de compte.'}),
+    el('button', {id: 'signShare', className: 'primary', onclick: () => shareQuote(r, true)}, 'Créer le lien de signature'));
+  const url = signUrl(r.signature_token);
+  const input = el('input', {id: 'signUrl', value: url, readOnly: true, onclick: e => e.target.select()});
+  const subject = 'Devis n° ' + r.numero + (r.entreprise.eNom ? ' — ' + r.entreprise.eNom : '');
+  const body = 'Bonjour,\n\nVoici le devis n° ' + r.numero + ' d\'un montant de ' + fmt(r.total_ttc) + (r.entreprise.eFranchise === '1' ? '' : ' TTC') + '.\nVous pouvez le consulter et le signer en ligne ici :\n' + url + '\n\nCordialement,\n' + (r.entreprise.eNom || '');
+  const actions = el('div', {className: 'pactions'},
+    el('button', {id: 'signCopy', onclick: async () => {
+      try { await navigator.clipboard.writeText(url); } catch(e){ input.select(); document.execCommand('copy'); }
+      toast('Lien copié : collez-le dans un email, un SMS ou WhatsApp.');
+    }}, 'Copier le lien'),
+    el('a', {className: 'btn', href: 'mailto:' + encodeURIComponent(r.client.cEmail || '') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body)}, 'Envoyer par email'));
+  if (navigator.share) actions.append(el('button', {onclick: () => navigator.share({title: subject, text: body, url}).catch(() => {})}, 'Partager'));
+  actions.append(el('button', {className: 'ghost', onclick: () => { if (confirm('Désactiver ce lien ? Le client ne pourra plus l\'ouvrir.')) shareQuote(r, false); }}, 'Désactiver'));
+  return block('Signature en ligne',
+    el('p', {className: 'hint', style: 'margin:0', textContent: 'Lien à envoyer au client. Il pourra consulter le devis et le signer en ligne ; vous verrez la signature ici.'}),
+    el('div', {className: 'sign-link'}, input), actions);
+}
+
+async function shareQuote(r, active){
+  if (active && currentDevis && currentDevis.id === r.id && !await saveQuote()) return;
+  const res = await sb.rpc('partager_devis', {p_devis_id: r.id, p_actif: active});
+  if (res.error){
+    if (res.error.code === 'PGRST202' || /partager_devis/.test(res.error.message || '')) toast('Pour la signature en ligne, relancez supabase/schema.sql dans Supabase.', true);
+    else toast('Lien impossible : ' + errorText(res.error), true);
+    return;
+  }
+  toast(active ? 'Lien de signature créé. Copiez-le ou envoyez-le au client.' : 'Lien de signature désactivé.');
+  await refreshLists();
+  showDevis(r.id);
+}
+
+// Page vue par le client : le devis, puis la signature
+async function loadSignPage(token){
+  const box = $('signBody');
+  for (let i = 0; !sb && i < 25; i++) await new Promise(res => setTimeout(res, 200));
+  if (!sb || !/^[0-9a-f-]{36}$/i.test(token)){ box.replaceChildren(signMessage('Lien invalide', 'Ce lien de signature n\'est pas valide.')); return; }
+  const {data, error} = await sb.rpc('devis_a_signer', {p_token: token});
+  if (error || !data){ box.replaceChildren(signMessage('Lien invalide ou désactivé', 'Ce devis n\'est plus disponible. Contactez l\'entreprise qui vous l\'a envoyé.')); return; }
+  renderSignPage(token, data);
+}
+const signMessage = (title, text) => el('div', {className: 'sign-card'}, el('h1', {textContent: title, style: 'font-size:1.15rem;margin:0 0 6px'}), el('p', {className: 'hint', style: 'margin:0', textContent: text}));
+
+function renderSignPage(token, q){
+  const e = q.entreprise || {}, c = q.client || {}, franchise = e.eFranchise === '1';
+  const ht = franchise ? '' : ' HT';
+  const head = el('div', {className: 'sign-card'},
+    el('div', {className: 'sign-head'},
+      el('div', {}, ...(e.eLogo ? [el('img', {src: e.eLogo, alt: ''})] : []), el('h1', {textContent: e.eNom || 'Entreprise'})),
+      el('div', {className: 'meta'}, el('strong', {textContent: 'Devis n° ' + q.numero, style: 'display:block;font-size:1rem;color:var(--ink)'}),
+        'Date : ' + frDate(q.date_devis), el('br'), 'Valable jusqu\'au : ' + (frDate(q.valide_jusqu) || '—'))),
+    el('div', {className: 'sign-parties'},
+      el('div', {}, el('strong', {textContent: 'Entreprise'}), [e.eAdr, e.eSiret && 'SIRET : ' + e.eSiret, e.eEmail, e.eTel].filter(Boolean).join('\n')),
+      el('div', {}, el('strong', {textContent: 'Client'}), [c.cNom, c.cAdr, c.cEmail].filter(Boolean).join('\n'))));
+  const table = el('table', {className: 'sign-table'},
+    el('thead', {}, el('tr', {}, el('th', {textContent: 'Description'}), el('th', {className: 'num', textContent: 'Qté'}), el('th', {className: 'num', textContent: 'Prix unitaire' + ht}), el('th', {className: 'num', textContent: 'Total' + ht}))),
+    el('tbody', {}, ...(q.lignes || []).map(l => el('tr', {}, el('td', {textContent: l.d}), el('td', {className: 'num', textContent: String(l.q).replace('.', ',') + (l.u ? ' ' + l.u : '')}),
+      el('td', {className: 'num', textContent: fmt(l.p)}), el('td', {className: 'num', textContent: fmt(l.q * l.p)})))));
+  const totals = el('div', {className: 'sign-totals'}, ...(franchise
+    ? [el('div', {className: 'ttc'}, el('span', {textContent: 'Total'}), el('span', {textContent: fmt(q.total_ttc)}))]
+    : [el('div', {}, el('span', {textContent: 'Total HT'}), el('span', {textContent: fmt(q.total_ht)})),
+       el('div', {}, el('span', {textContent: 'TVA (' + String(q.tva).replace('.', ',') + ' %)'}), el('span', {textContent: fmt(q.total_tva)})),
+       el('div', {className: 'ttc'}, el('span', {textContent: 'Total TTC'}), el('span', {textContent: fmt(q.total_ttc)}))]));
+  const notes = [q.notes, e.eDechets, franchise && 'TVA non applicable, art. 293 B du CGI.', e.eAssurance && 'Assurance professionnelle : ' + e.eAssurance].filter(Boolean).join('\n\n');
+  const body = el('div', {className: 'sign-card'}, table, totals, ...(notes ? [el('p', {className: 'sign-notes', textContent: notes})] : []));
+  const pdfBtn = el('button', {id: 'signPdf', onclick: () => devisPDF(q)}, svgIcon(ICONS.download), q.signe_le ? 'Télécharger le devis signé (PDF)' : 'Télécharger le devis (PDF)');
+
+  let action;
+  const expired = q.valide_jusqu && q.valide_jusqu < today();
+  if (q.signe_le) action = el('div', {className: 'sign-card'},
+    el('div', {className: 'sign-ok'}, ...(q.signature && q.signature.image ? [el('img', {src: q.signature.image, alt: 'Signature'})] : []),
+      el('span', {}, 'Devis signé par ' + (q.signature ? q.signature.nom : '') + ' le ' + frDateTime(q.signe_le) + '.')),
+    el('div', {className: 'pactions'}, pdfBtn));
+  else if (q.statut === 'refuse' || q.statut === 'facture' || expired) action = el('div', {className: 'sign-card'},
+    el('p', {className: 'hint', style: 'margin:0 0 10px', textContent: expired ? 'Ce devis a expiré le ' + frDate(q.valide_jusqu) + '. Contactez l\'entreprise pour un nouveau devis.' : 'Ce devis ne peut plus être signé en ligne.'}),
+    el('div', {className: 'pactions'}, pdfBtn));
+  else action = signForm(token, q, pdfBtn);
+  $('signBody').replaceChildren(head, body, action);
+}
+
+function signForm(token, q, pdfBtn){
+  const name = el('input', {id: 'signName', autocomplete: 'name', value: (q.client && q.client.cNom) || '', placeholder: 'Prénom et nom'});
+  const accept = el('input', {type: 'checkbox', id: 'signAccept'});
+  const canvas = el('canvas', {id: 'signCanvas'});
+  const pad = el('div', {className: 'sign-pad'}, canvas, el('span', {textContent: 'Signez ici avec le doigt ou la souris'}));
+  let drawn = false, drawing = false, ctx;
+  const setup = () => {
+    const r = canvas.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+    canvas.width = Math.round(r.width * k); canvas.height = Math.round(r.height * k);
+    ctx = canvas.getContext('2d'); ctx.scale(k, k);
+    ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111827';
+    drawn = false;
+  };
+  const pos = ev => { const r = canvas.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+  canvas.onpointerdown = ev => { if (!ctx) setup(); drawing = true; canvas.setPointerCapture(ev.pointerId); ctx.beginPath(); ctx.moveTo(...pos(ev)); ev.preventDefault(); };
+  canvas.onpointermove = ev => { if (!drawing) return; ctx.lineTo(...pos(ev)); ctx.stroke(); drawn = true; ev.preventDefault(); };
+  canvas.onpointerup = canvas.onpointercancel = () => { drawing = false; };
+  const clear = el('button', {className: 'ghost', type: 'button', onclick: setup}, 'Effacer');
+  const submit = el('button', {id: 'signSubmit', className: 'primary', onclick: async () => {
+    if (name.value.trim().length < 2){ toast('Indiquez votre nom.', true); name.focus(); return; }
+    if (!drawn){ toast('Dessinez votre signature dans le cadre.', true); return; }
+    if (!accept.checked){ toast('Cochez la case « Bon pour accord » pour accepter le devis.', true); return; }
+    submit.disabled = true; submit.textContent = 'Signature en cours…';
+    const {data, error} = await sb.rpc('signer_devis', {p_token: token, p_nom: name.value.trim(), p_image: canvas.toDataURL('image/png')});
+    submit.disabled = false; submit.textContent = 'Signer le devis';
+    if (error){ toast('Signature impossible : ' + errorText(error), true); return; }
+    toast('Merci, le devis est signé. Vous pouvez télécharger votre exemplaire.');
+    renderSignPage(token, data);
+    window.scrollTo(0, document.body.scrollHeight);
+  }}, 'Signer le devis');
+  const card = el('div', {className: 'sign-card'},
+    el('h2', {textContent: 'Signature du devis', style: 'font-size:1.05rem;margin:0 0 12px'}),
+    el('div', {className: 'field', style: 'margin-top:0'}, el('label', {htmlFor: 'signName', textContent: 'Votre nom'}), name),
+    el('div', {className: 'field'}, el('label', {textContent: 'Votre signature'}), pad),
+    el('label', {className: 'check', style: 'margin-top:12px'}, accept,
+      el('span', {textContent: 'Bon pour accord : j\'ai lu et j\'accepte le devis n° ' + q.numero + ' d\'un montant de ' + fmt(q.total_ttc) + (q.entreprise && q.entreprise.eFranchise === '1' ? '' : ' TTC') + '.'})),
+    el('div', {className: 'pactions'}, submit, clear, pdfBtn),
+    el('p', {className: 'hint', style: 'margin:10px 0 0', textContent: 'Votre nom, votre signature, la date et l\'adresse de connexion sont enregistrés comme preuve de votre accord.'}));
+  requestAnimationFrame(setup);
+  return card;
 }
 
 // Enregistre le statut et la date de paiement d'une facture.
