@@ -280,6 +280,8 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .linkbtn{background:none;border:0;box-shadow:none;padding:0;min-height:0;height:auto;color:var(--accent);font-size:inherit;text-decoration:underline;cursor:pointer}
 .ia-preview{font:inherit;font-size:.78rem;max-height:260px;overflow:auto}
 .tag.warn{background:#fff4e5;color:#9a5b00}
+.libitem.libcat .txt{color:var(--ink-2)}
+.lib-count{margin:0 0 6px}
 .libitem .price{font-size:.82rem;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 .libitem .tools{display:flex;opacity:.55}
 .libitem:hover .tools,.libitem .tools:focus-within{opacity:1}
@@ -2677,29 +2679,112 @@ function avoirPDF(a, f){
 
 // ---- Bibliothèque de prestations, classées par corps de métier ----
 
-const METIERS = ['Peinture', 'Plâtrerie', 'Maçonnerie', 'Démolition', 'Carrelage', 'Plomberie', 'Électricité', 'Menuiserie', 'Nettoyage', 'Autre'];
-// Unité proposée pour un exemple, d'après son libellé
-function exampleUnit(d){
-  if (/^(Protection|Nettoyage|Évacuation|Dépose des équipements|Mise en conformité|Remplacement|Création d'un|Création d'une|Démolition de la cuisine|Ouverture de mur)/.test(d)) return 'forfait';
-  if (/^Fourniture et pose (d'un|d'une|de porte|de prises|de points)/.test(d)) return 'u';
-  if (/plinthes/i.test(d)) return 'ml';
-  return 'm²';
+const METIERS = ['Peinture', 'Plâtrerie', 'Isolation', 'Maçonnerie', 'Démolition', 'Carrelage', 'Revêtements de sol', 'Plomberie',
+  'Chauffage', 'Électricité', 'Menuiserie', 'Façade', 'Couverture', 'Nettoyage', 'Autre'];
+// Catalogue de prestations courantes, avec des prix indicatifs HT (moyennes constatées en France,
+// hors Île-de-France) : à ajuster à vos propres tarifs une fois dans votre bibliothèque.
+const CATALOGUE = {"Peinture": [{"d": "Protection des sols et du mobilier", "u": "forfait", "p": 150}, {"d": "Application de deux couches de peinture acrylique mate sur murs", "u": "m²", "p": 22}], "Plâtrerie": [{"d": "Fourniture et pose de cloison en plaques de plâtre BA13 sur ossature métallique", "u": "m²", "p": 45}], "Plomberie": [{"d": "Fourniture et pose de WC suspendu avec bâti-support", "u": "u", "p": 900}], "Carrelage": [{"d": "Pose de faïence murale", "u": "m²", "p": 45}]};
+
+// ---- Recherche intelligente ----
+// Sans accents ni majuscules, mots dans n'importe quel ordre, début de mot suffisant,
+// pluriels et fautes de frappe tolérés, synonymes et abréviations du bâtiment.
+const STOP_WORDS = new Set('de des du d la le les l un une et en a au aux pour sur avec par ou dans y'.split(' '));
+const stem = w => w.length > 3 ? w.replace(/(?<=[a-z])[sx]$/, '') : w;
+const normText = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae');
+const searchTokens = s => normText(s).split(/[^a-z0-9²³]+/).filter(w => w && !STOP_WORDS.has(w)).map(stem);
+// Chaque groupe : termes équivalents (un terme de plusieurs mots doit être présent en entier)
+const SYNONYMES = [
+  ['placo', 'ba13', 'plaque platre', 'plaquiste', 'plaquisterie', 'platrerie'],
+  ['wc', 'toilette', 'cuvette'],
+  ['sdb', 'salle bain', 'salle eau'],
+  ['elec', 'electricite', 'electrique', 'electricien'],
+  ['plomberie', 'plombier', 'sanitaire'],
+  ['peinture', 'peindre', 'peintre', 'repeindre'],
+  ['carrelage', 'carreau', 'carreleur', 'faience'],
+  ['sol', 'plancher', 'parquet', 'revetement'],
+  ['cloison', 'mur', 'paroi'],
+  ['plafond', 'faux plafond', 'sous plafond'],
+  ['depose', 'demolition', 'demonter', 'enlever', 'retirer', 'arracher', 'piochage'],
+  ['evacuation', 'gravat', 'decheterie', 'dechet', 'benne'],
+  ['isolation', 'isolant', 'laine', 'doublage'],
+  ['chauffe eau', 'ballon', 'cumulus'],
+  ['radiateur', 'chauffage', 'chaudiere', 'pac', 'pompe chaleur'],
+  ['prise', 'pc', 'prise courant'],
+  ['luminaire', 'point lumineux', 'eclairage', 'spot', 'lumiere'],
+  ['tableau electrique', 'disjoncteur', 'tableau'],
+  ['douche', 'receveur', 'paroi douche'],
+  ['baignoire', 'bain'],
+  ['lavabo', 'vasque', 'meuble vasque'],
+  ['robinet', 'mitigeur', 'robinetterie'],
+  ['fenetre', 'baie', 'vitrage', 'menuiserie exterieure'],
+  ['porte', 'bloc porte', 'huisserie'],
+  ['enduit', 'ratissage', 'lissage', 'rebouchage'],
+  ['facade', 'ravalement', 'crepi', 'enduit facade'],
+  ['toiture', 'toit', 'couverture', 'tuile', 'couvreur'],
+  ['gouttiere', 'cheneau', 'descente eau pluviale', 'zinguerie'],
+  ['nettoyage', 'menage', 'nettoyer'],
+  ['protection', 'bache', 'proteger'],
+  ['ragreage', 'chape', 'ragreer'],
+  ['plinthe', 'plinthes'],
+  ['mo', 'main oeuvre', 'taux horaire']
+].map(g => g.map(searchTokens));
+
+function editDistance(a, b, max){
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({length: b.length + 1}, (_, j) => j);
+  for (let i = 1; i <= a.length; i++){
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++){
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
 }
-// Exemples proposés pour démarrer (sans prix : chacun met les siens)
-const EXEMPLES = {
-  'Peinture': ['Protection des sols et du mobilier', 'Ponçage et dépoussiérage des enduits', 'Rebouchage et enduit de lissage',
-    'Application d\'une couche d\'impression', 'Application de deux couches de peinture murs (finition mate)',
-    'Application de deux couches de peinture plafonds', 'Peinture des boiseries (portes, plinthes) en deux couches'],
-  'Plâtrerie': ['Montage de cloison en plaques de plâtre', 'Doublage isolant des murs', 'Faux plafond en plaques de plâtre', 'Bandes et enduit des joints'],
-  'Maçonnerie': ['Démolition de la cuisine existante', 'Piochage du carrelage existant', 'Évacuation des gravats en déchetterie',
-    'Ouverture de mur avec pose d\'un linteau', 'Montage de cloison en carreaux de plâtre', 'Ragréage du sol'],
-  'Démolition': ['Dépose des équipements sanitaires', 'Démolition de cloison', 'Dépose du revêtement de sol', 'Évacuation des gravats en déchetterie'],
-  'Carrelage': ['Pose de carrelage au sol', 'Pose de faïence murale', 'Pose de plinthes carrelées', 'Joints et nettoyage de fin de chantier'],
-  'Plomberie': ['Fourniture et pose d\'un WC suspendu', 'Fourniture et pose d\'un meuble vasque', 'Remplacement du chauffe-eau', 'Création d\'une arrivée et d\'une évacuation d\'eau'],
-  'Électricité': ['Mise en conformité du tableau électrique', 'Fourniture et pose de prises de courant', 'Fourniture et pose de points lumineux', 'Création d\'un circuit spécialisé'],
-  'Menuiserie': ['Fourniture et pose de porte intérieure', 'Fourniture et pose de plinthes bois', 'Pose de parquet flottant'],
-  'Nettoyage': ['Nettoyage de fin de chantier']
-};
+
+// Qualité de la correspondance d'un mot de la recherche avec un mot du texte (0 : aucune)
+function wordScore(q, t){
+  if (t === q) return 3;
+  if (t.startsWith(q)) return q.length >= 2 ? 2.5 : 0;
+  const max = q.length >= 8 ? 2 : q.length >= 4 ? 1 : 0;
+  if (!max) return 0;
+  // Faute de frappe, sur le mot entier ou sur son début (recherche en cours de saisie)
+  if (editDistance(q, t, max) <= max || (t.length > q.length && editDistance(q, t.slice(0, q.length), max) <= max)) return 1.5;
+  return 0;
+}
+const bestScore = (q, words) => words.reduce((m, t) => Math.max(m, wordScore(q, t)), 0);
+
+// Variantes d'un mot de la recherche : lui-même, puis ses synonymes
+function variants(q){
+  const out = [[q]];
+  SYNONYMES.forEach(g => { if (g.some(term => term.length === 1 && (term[0] === q || (q.length >= 3 && term[0].startsWith(q))))) g.forEach(term => out.push(term)); });
+  return out;
+}
+
+// Score d'un élément pour une recherche (0 : ne correspond pas). Tous les mots doivent correspondre.
+function searchScore(query, text, extra){
+  const qs = searchTokens(query);
+  if (!qs.length) return 0;
+  const words = searchTokens(text), more = searchTokens(extra);
+  let total = 0;
+  for (const q of qs){
+    let s = 0;
+    variants(q).forEach((term, i) => {
+      const synonym = i > 0 ? 0.8 : 1;
+      const inText = Math.min(...term.map(t => bestScore(t, words)));
+      const inExtra = Math.min(...term.map(t => bestScore(t, words.concat(more)))) * 0.6;
+      s = Math.max(s, Math.max(inText, inExtra) * synonym);
+    });
+    if (!s) return 0;
+    total += s;
+  }
+  // Bonus si la recherche apparaît telle quelle dans le libellé
+  if (normText(text).includes(normText(query).trim())) total += 2;
+  return total;
+}
 
 let library = [];                          // [{id, metier, d, u, p}]
 const lib = {tab: null, selected: new Set()};
@@ -2852,13 +2937,33 @@ function openLibrary(){
   $('libSearch').focus();
 }
 
+// Prestations du catalogue pas encore dans la bibliothèque
+const catalogItems = metier => (CATALOGUE[metier] || []).filter(c => !library.some(i => libKey(i.d) === libKey(c.d)))
+  .map(c => ({key: 'c:' + metier + '|' + c.d, d: c.d, u: c.u, p: c.p, cat: Object.assign({metier}, c), metier}));
+
+// Tout ce qui peut être ajouté au devis : bibliothèque, prestations fréquentes, catalogue
+function libraryCandidates(){
+  const known = new Set(library.map(i => libKey(i.d)));
+  const freq = frequentLines().filter(f => !known.has(libKey(f.d)));
+  freq.forEach(f => known.add(libKey(f.d)));
+  return [
+    ...library.map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i, metier: i.metier || 'Autre', sub: i.metier})),
+    ...freq.map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, metier: '', sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')})),
+    ...Object.keys(CATALOGUE).flatMap(catalogItems).filter(c => !known.has(libKey(c.d))).map(c => Object.assign(c, {sub: 'Catalogue · ' + c.metier + ' · prix indicatif'}))];
+}
+
 function visibleLibraryItems(){
-  const q = libKey($('libSearch') ? $('libSearch').value : '');
-  if (q) return [
-    ...library.filter(i => libKey(i.d).includes(q) || libKey(i.metier).includes(q)).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i, sub: i.metier})),
-    ...frequentLines().filter(f => libKey(f.d).includes(q) && !library.some(i => libKey(i.d) === libKey(f.d))).map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}))];
+  const q = $('libSearch') ? $('libSearch').value.trim() : '';
+  if (q) return libraryCandidates()
+    .map((c, i) => ({c, i, s: searchScore(q, c.d, c.metier + ' ' + (c.cat ? 'catalogue' : ''))}))
+    .filter(r => r.s > 0)
+    // Les mieux classés d'abord ; à égalité, vos prestations avant le catalogue
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .slice(0, 60).map(r => r.c);
   if (lib.tab === 'frequentes') return frequentLines().map(f => ({key: 'f:' + libKey(f.d), d: f.d, u: f.u, p: f.p, freq: f, sub: 'Utilisée ' + plural(f.n, 'fois', 'fois')}));
-  return library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i}));
+  return [
+    ...library.filter(i => (i.metier || 'Autre') === lib.tab).map(i => ({key: 'l:' + i.id, d: i.d, u: i.u, p: i.p, item: i})),
+    ...catalogItems(lib.tab).map(c => Object.assign(c, {sub: 'Catalogue · prix indicatif'}))];
 }
 
 function renderLibList(){
@@ -2886,10 +2991,13 @@ function renderLibList(){
         el('button', {className: 'ghost icon del', title: 'Retirer de la bibliothèque', ariaLabel: 'Retirer de la bibliothèque', onclick: () => {
           if (confirm('Retirer « ' + it.item.d + ' » de la bibliothèque ?')) removeFromLibrary(it.item);
         }}, svgIcon('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'))));
-    } else if (it.freq){
+    } else {
+      // Prestation fréquente ou du catalogue : à enregistrer dans la bibliothèque (pour fixer son prix)
+      row.classList.toggle('libcat', !!it.cat);
       row.append(el('span', {className: 'tools'},
-        el('button', {className: 'ghost icon', title: 'Enregistrer dans la bibliothèque', ariaLabel: 'Enregistrer dans la bibliothèque', onclick: async () => {
-          if (await addToLibrary([{id: newId(), metier: $('libMetier').value.trim() || 'Autre', d: it.d, u: it.u || '', p: it.p}])) renderLibList();
+        el('button', {className: 'ghost icon', title: 'Enregistrer dans ma bibliothèque', ariaLabel: 'Enregistrer dans ma bibliothèque', onclick: async () => {
+          const metier = it.cat ? it.cat.metier : $('libMetier').value.trim() || 'Autre';
+          if (await addToLibrary([{id: newId(), metier, d: it.d, u: it.u || '', p: it.p}])) renderLibList();
         }}, svgIcon('<path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9Z"/>'))));
     }
     list.append(row);
@@ -2899,12 +3007,14 @@ function renderLibList(){
     list.append(el('p', {className: 'hint lib-empty', textContent: q ? 'Aucune prestation ne correspond à la recherche.'
       : lib.tab === 'frequentes' ? (user ? 'Les prestations de vos devis enregistrés apparaîtront ici, des plus utilisées aux moins utilisées.' : 'Connectez-vous et enregistrez vos devis : leurs prestations apparaîtront ici.')
       : 'Aucune prestation en ' + lib.tab + ' pour l\'instant. Ajoutez les vôtres ci-dessous.'}));
+  } else if (q){
+    list.prepend(el('p', {className: 'hint lib-count', textContent: plural(items.length, 'résultat') + (items.length === 60 ? ' (les plus pertinents)' : '')}));
   }
-  // Exemples à charger pour le corps de métier affiché
-  const missing = !q && EXEMPLES[lib.tab] ? EXEMPLES[lib.tab].filter(d => !library.some(i => libKey(i.d) === libKey(d))) : [];
+  // Tout le catalogue du corps de métier affiché, d'un coup, dans la bibliothèque
+  const missing = q ? [] : catalogItems(lib.tab);
   if (missing.length) list.append(el('button', {className: 'ghost lib-examples', onclick: async () => {
-    if (await addToLibrary(missing.map(d => ({id: newId(), metier: lib.tab, d, u: exampleUnit(d), p: 0})))) renderLibList();
-  }}, '+ Ajouter ' + plural(missing.length, 'exemple') + ' de prestations en ' + lib.tab));
+    if (await addToLibrary(missing.map(c => ({id: newId(), metier: lib.tab, d: c.d, u: c.u, p: c.p})))) renderLibList();
+  }}, '+ Enregistrer ' + (missing.length > 1 ? 'les ' + missing.length + ' prestations' : 'la prestation') + ' du catalogue ' + lib.tab + ' dans ma bibliothèque'));
   updateLibFoot();
 }
 
@@ -2939,10 +3049,7 @@ function toggleAllLibrary(){
 
 // Ajoute les prestations cochées au devis, dans l'ordre de la bibliothèque
 function addSelectedToQuote(){
-  const chosen = [];
-  const push = (k, d, p, u) => { if (lib.selected.has(k)) chosen.push({d, p: Number(p) || 0, u: u || ''}); };
-  library.forEach(i => push('l:' + i.id, i.d, i.p, i.u));
-  frequentLines().forEach(f => push('f:' + libKey(f.d), f.d, f.p, f.u));
+  const chosen = libraryCandidates().filter(c => lib.selected.has(c.key)).map(c => ({d: c.d, p: Number(c.p) || 0, u: c.u || ''}));
   if (!chosen.length) return;
   // Remplace la ligne vide d'un nouveau devis plutôt que de la laisser
   getLines().filter(l => !l.d && !l.p).forEach(l => l.row.remove());
