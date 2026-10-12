@@ -288,6 +288,23 @@ label.check input{width:16px;height:16px;min-height:0;margin:2px 0 0;flex:none;a
 .ia-ex{font-size:.8rem;color:var(--muted);margin:6px 0 0}
 .ia-note{background:var(--gray-soft);border-radius:6px;padding:10px 12px;font-size:.82rem;color:var(--ink-2);white-space:pre-wrap;margin:10px 0 0}
 .ia-old{text-decoration:line-through;color:var(--muted)}
+.help-intro h2{margin:0 0 4px;font-size:1.1rem}
+.help-intro p{margin:0 0 12px;color:var(--ink-2);font-size:.9rem}
+.help-search{width:100%}
+.help-group{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 8px;font-weight:600}
+details.help{padding:0;margin-bottom:8px}
+details.help summary{list-style:none;display:flex;gap:12px;align-items:center;padding:14px 18px;cursor:pointer}
+details.help summary::-webkit-details-marker{display:none}
+details.help summary strong{display:block;font-size:.95rem;font-weight:600}
+details.help summary small{display:block;color:var(--muted);font-size:.8rem;margin-top:2px}
+.help-ic{flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent-soft,#e8eefc);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.85rem}
+details.help > :not(summary){margin-left:60px;margin-right:18px}
+details.help ol{padding-left:18px;margin-top:0;font-size:.9rem;line-height:1.6}
+details.help ol li{margin-bottom:6px}
+details.help > p{font-size:.9rem;line-height:1.6;color:var(--ink-2)}
+details.help .help-tip{background:#fff8e6;border-radius:8px;padding:10px 12px;font-size:.84rem;color:#6b4e00}
+details.help > .btn{margin-bottom:16px}
+@media (max-width:640px){details.help > :not(summary){margin-left:18px}}
 .logo-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .logo-box{width:160px;height:72px;border:1px dashed var(--line-2);border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;color:var(--muted);font-size:.8rem}
 .logo-box img{max-width:100%;max-height:100%;object-fit:contain}
@@ -697,6 +714,7 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
    <div class="nav-label">Réglages</div>
    <a href="#/entreprise" data-route="entreprise"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M10 21v-4h4v4"/></svg>Entreprise</a>
    <a href="#/compte" data-route="compte"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Compte</a>
+   <a href="#/aide" data-route="aide" class="nav-help"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.8M12 17.5h.01"/></svg>Aide et tutoriel</a>
   </nav>
   <div class="side-foot">
    <a class="nav-link guest-only" href="#/connexion"><svg class="i" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Se connecter</a>
@@ -1000,6 +1018,185 @@ body[data-route="accueil"] #landingHome,body[data-route="connexion"] #landingAut
    </div>
 
    <!-- Compte -->
+   <div class="view" id="viewHelp">
+    <div class="pad narrow">
+     <div class="card help-intro">
+      <h2>Bienvenue dans le guide</h2>
+      <p>Chaque fiche explique une fonction du site, étape par étape. Cliquez sur un titre pour l'ouvrir, puis sur le bouton bleu pour aller directement au bon endroit.</p>
+      <div class="search help-search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+       <input id="helpSearch" type="search" placeholder="Que voulez-vous faire ? Ex. facture, signature, logo…" aria-label="Rechercher dans le guide"></div>
+     </div>
+     <div id="helpList">
+
+     <h3 class="help-group">Pour commencer</h3>
+     <details class="card help">
+      <summary><span class="help-ic">1</span><span><strong>Créer mon compte et me connecter</strong><small>Pour retrouver vos devis sur l'ordinateur et le téléphone</small></span></summary>
+      <ol>
+       <li>Cliquez sur <b>Se connecter</b> en bas à gauche, puis sur <b>Créer un compte</b>.</li>
+       <li>Tapez votre adresse email et choisissez un mot de passe (au moins 6 caractères). Notez-le dans un endroit sûr.</li>
+       <li>Une fois connecté, tout ce que vous faites est enregistré automatiquement en ligne.</li>
+      </ol>
+      <p class="help-tip">Mot de passe oublié ? Sur la page de connexion, cliquez sur « Mot de passe oublié » : un lien vous est envoyé par email (regardez aussi dans les courriers indésirables).</p>
+      <a class="btn primary" href="#/compte">Aller à mon compte</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">2</span><span><strong>Remplir les informations de mon entreprise</strong><small>Nom, SIRET, logo, mentions légales — à faire une seule fois</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Entreprise</b> dans le menu de gauche.</li>
+       <li>Remplissez le nom, le SIRET, l'email, le téléphone et l'adresse.</li>
+       <li>Cliquez sur <b>Choisir une image</b> pour ajouter votre logo : il apparaîtra en haut de vos devis et factures.</li>
+       <li>Dans <b>Mentions légales</b>, indiquez votre forme juridique, votre assurance professionnelle et vos conditions de paiement (IBAN…).</li>
+       <li>Artisan du bâtiment : cliquez sur <b>Insérer un modèle à compléter</b> sous « Gestion des déchets » et remplacez les crochets [ ] par vos informations. Cette mention est obligatoire sur les devis de travaux.</li>
+       <li>Micro-entrepreneur sans TVA : cochez <b>Franchise en base de TVA</b>. Les devis n'auront plus de TVA et porteront la mention obligatoire.</li>
+      </ol>
+      <p class="help-tip">Tout est enregistré dès que vous tapez : il n'y a pas de bouton « Enregistrer » sur cette page.</p>
+      <a class="btn primary" href="#/entreprise">Ouvrir Entreprise</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">3</span><span><strong>Mettre le site sur l'écran de mon téléphone</strong><small>Pour l'ouvrir comme une application</small></span></summary>
+      <ol>
+       <li>Ouvrez le site sur votre téléphone.</li>
+       <li>iPhone : touchez <b>Partager</b> (le carré avec une flèche) puis <b>Sur l'écran d'accueil</b>.</li>
+       <li>Android : touchez <b>⋮</b> en haut à droite puis <b>Ajouter à l'écran d'accueil</b>.</li>
+      </ol>
+     </details>
+
+     <h3 class="help-group">Les devis</h3>
+     <details class="card help">
+      <summary><span class="help-ic">4</span><span><strong>Faire un devis</strong><small>Client, prestations, prix, PDF</small></span></summary>
+      <ol>
+       <li>Cliquez sur <b>Nouveau devis</b> (bouton bleu en haut).</li>
+       <li>Remplissez le <b>client</b> : nom, adresse, email. Il est mémorisé pour la prochaine fois.</li>
+       <li>Pour chaque prestation, une ligne : la <b>description</b>, la <b>quantité</b>, l'<b>unité</b> (m², ml, forfait…) et le <b>prix unitaire</b>. Le total se calcule tout seul : 10 m² à 5 € = 50 €.</li>
+       <li><b>Ajouter une ligne</b> pour une nouvelle prestation, la croix rouge pour en supprimer une.</li>
+       <li>Vous préférez taper des prix TTC ? Cliquez sur <b>TTC</b> à côté de « Prix saisis en ».</li>
+       <li>Cliquez sur <b>Enregistrer</b>, puis <b>Télécharger le devis (PDF)</b> pour l'imprimer ou l'envoyer.</li>
+      </ol>
+      <a class="btn primary" href="#/editeur" data-help="new">Créer un devis</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">5</span><span><strong>Organiser un devis par pièces (sections)</strong><small>« Salle de bain », « Cuisine »… avec un sous-total chacune</small></span></summary>
+      <ol>
+       <li>Dans le devis, cliquez sur <b>Ajouter une section</b> et tapez un titre, par exemple « Salle de bain ».</li>
+       <li>Ajoutez ensuite les lignes de cette pièce : elles appartiennent à la section jusqu'à la suivante.</li>
+       <li>Le sous-total de chaque section s'affiche à droite et sur le PDF.</li>
+       <li>Pour changer l'ordre, attrapez la poignée <b>⠿</b> à gauche d'une ligne et faites-la glisser.</li>
+      </ol>
+      <a class="btn primary" href="#/editeur">Ouvrir l'éditeur</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">6</span><span><strong>Gagner du temps avec la bibliothèque de prestations</strong><small>Plus de 190 prestations prêtes à l'emploi, avec des prix indicatifs</small></span></summary>
+      <ol>
+       <li>Dans le devis, cliquez sur <b>Bibliothèque de prestations</b>.</li>
+       <li>Choisissez un métier (Peinture, Plomberie…) ou tapez ce que vous cherchez : « placo », « wc », « peinture plafond »… même avec des fautes.</li>
+       <li>Cochez les prestations voulues puis <b>Ajouter au devis</b>. Il ne reste qu'à mettre les quantités.</li>
+       <li>Cliquez sur l'<b>étoile</b> pour garder une prestation dans votre bibliothèque, puis sur le crayon pour y mettre votre propre prix.</li>
+       <li>Le petit signet à droite d'une ligne du devis l'enregistre aussi dans votre bibliothèque.</li>
+      </ol>
+      <p class="help-tip">Les prix du catalogue sont des moyennes indicatives : adaptez-les à vos tarifs. La case « Afficher les prix » les masque si vous montrez l'écran à un client.</p>
+      <a class="btn primary" href="#/editeur" data-help="library">Ouvrir la bibliothèque</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">7</span><span><strong>Faire signer un devis par le client, en ligne</strong><small>Le client signe sur son téléphone, sans créer de compte</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Devis</b> dans le menu et cliquez sur le devis.</li>
+       <li>Dans le panneau à droite, cliquez sur <b>Créer le lien de signature</b>.</li>
+       <li>Envoyez le lien : <b>Copier le lien</b> (à coller dans un SMS ou WhatsApp) ou <b>Envoyer par email</b>.</li>
+       <li>Le client ouvre le lien, lit le devis, signe avec le doigt et valide.</li>
+       <li>Le devis passe à « Accepté » avec l'étiquette « Signé ». Il ne peut plus être modifié.</li>
+      </ol>
+      <a class="btn primary" href="#/devis">Voir mes devis</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">8</span><span><strong>Refaire un devis qui ressemble à un ancien</strong><small>Dupliquer au lieu de tout retaper</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Devis</b> et cliquez sur le devis à copier.</li>
+       <li>Cliquez sur <b>Dupliquer</b> : une copie s'ouvre avec un nouveau numéro et la date du jour.</li>
+       <li>Changez le client ou les quantités, puis <b>Enregistrer</b>. L'ancien devis ne change pas.</li>
+      </ol>
+      <a class="btn primary" href="#/devis">Voir mes devis</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">9</span><span><strong>Suivre mes devis</strong><small>Brouillon, envoyé, accepté, refusé</small></span></summary>
+      <ol>
+       <li>La page <b>Devis</b> liste tous vos devis avec leur statut et leur montant.</li>
+       <li>Cliquez sur un devis pour changer son statut, l'ouvrir, le télécharger ou le supprimer.</li>
+       <li>La barre de recherche et le menu des statuts permettent de retrouver un devis rapidement.</li>
+      </ol>
+      <a class="btn primary" href="#/devis">Voir mes devis</a>
+     </details>
+
+     <h3 class="help-group">Les factures</h3>
+     <details class="card help">
+      <summary><span class="help-ic">10</span><span><strong>Demander un acompte</strong><small>Par exemple 30 % à la commande</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Devis</b> et cliquez sur le devis.</li>
+       <li>Cliquez sur <b>Facture d'acompte</b>, choisissez le pourcentage (30 % par défaut) ou un montant.</li>
+       <li>Cliquez sur <b>Créer la facture d'acompte</b> : le PDF se télécharge, prêt à envoyer.</li>
+       <li>Les acomptes seront déduits automatiquement de la facture finale.</li>
+      </ol>
+      <a class="btn primary" href="#/devis">Voir mes devis</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">11</span><span><strong>Transformer un devis en facture</strong><small>En un clic, quand les travaux sont terminés</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Devis</b> et cliquez sur le devis accepté.</li>
+       <li>Cliquez sur <b>Convertir en facture</b> (ou <b>Facture finale</b> s'il y a eu des acomptes).</li>
+       <li>La facture reçoit automatiquement son numéro (F-2026-001…) et le PDF se télécharge.</li>
+      </ol>
+      <p class="help-tip">Une facture ne peut plus être modifiée ni supprimée : c'est la loi. Pour corriger une erreur, on fait un avoir (fiche suivante).</p>
+      <a class="btn primary" href="#/devis">Voir mes devis</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">12</span><span><strong>Noter qu'une facture est payée</strong><small>Et voir celles qui sont en retard</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Factures</b> et cliquez sur la facture.</li>
+       <li>Cliquez sur <b>Marquer comme payée</b>. Vous pouvez indiquer la date du paiement.</li>
+       <li>Les factures en retard apparaissent en rouge, avec le total à encaisser en haut de la page.</li>
+      </ol>
+      <a class="btn primary" href="#/factures">Voir mes factures</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">13</span><span><strong>Annuler ou corriger une facture (avoir)</strong><small>Erreur, geste commercial, travaux annulés</small></span></summary>
+      <ol>
+       <li>Ouvrez <b>Factures</b> et cliquez sur la facture.</li>
+       <li>Cliquez sur <b>Créer un avoir</b>.</li>
+       <li>Choisissez <b>Annuler toute la facture</b>, ou <b>Avoir partiel</b> pour certaines lignes ou une remise.</li>
+       <li>Indiquez le motif puis <b>Créer l'avoir</b> : son PDF se télécharge.</li>
+      </ol>
+      <a class="btn primary" href="#/factures">Voir mes factures</a>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">14</span><span><strong>Voir mon chiffre d'affaires</strong><small>Par mois, par trimestre, par année</small></span></summary>
+      <ol>
+       <li>Le <b>Tableau de bord</b> résume l'activité : facturé, à encaisser, devis en cours.</li>
+       <li>Dans <b>Factures</b>, l'onglet <b>Chiffre d'affaires</b> affiche un graphique sur la période choisie.</li>
+       <li>Le bouton <b>Exporter</b> télécharge un fichier pour votre comptable (tableur).</li>
+      </ol>
+      <a class="btn primary" href="#/tableau-de-bord">Ouvrir le tableau de bord</a>
+     </details>
+
+     <h3 class="help-group">Questions fréquentes</h3>
+     <details class="card help">
+      <summary><span class="help-ic">?</span><span><strong>Pourquoi je ne peux plus modifier mon devis ?</strong></span></summary>
+      <p>Un devis <b>facturé</b> ou <b>signé par le client</b> est verrouillé pour garder une preuve fidèle. Utilisez <b>Dupliquer</b> pour repartir de ce devis.</p>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">?</span><span><strong>Où sont enregistrés mes devis et factures ?</strong></span></summary>
+      <p>Une fois connecté, tout est enregistré en ligne de façon sécurisée : vous les retrouvez sur l'ordinateur comme sur le téléphone. Sans compte, ils restent seulement dans le navigateur de cet appareil.</p>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">?</span><span><strong>Je me suis trompé dans une facture, je peux la supprimer ?</strong></span></summary>
+      <p>Non, la loi l'interdit : la numérotation des factures doit rester continue. Faites un <b>avoir</b> (fiche 13), puis une nouvelle facture correcte.</p>
+     </details>
+     <details class="card help">
+      <summary><span class="help-ic">?</span><span><strong>Le site affiche encore l'ancienne version</strong></span></summary>
+      <p>Rechargez la page. Sur ordinateur : touches <b>Ctrl + F5</b>. Sur téléphone : fermez l'onglet et rouvrez le site.</p>
+     </details>
+     </div>
+     <p class="hint lib-empty" id="helpEmpty" hidden>Aucune fiche ne correspond. Essayez un autre mot, par exemple « devis » ou « facture ».</p>
+    </div>
+   </div>
    <div class="view" id="viewAccount">
     <div class="pad narrow">
      <div class="card" id="accountInfo" hidden>
@@ -1903,7 +2100,8 @@ const ROUTES = {
   devis: ['devisSection', 'Devis'],
   factures: ['factSection', 'Factures'],
   entreprise: ['viewSettings', 'Entreprise'],
-  compte: ['viewAccount', 'Compte']
+  compte: ['viewAccount', 'Compte'],
+  aide: ['viewHelp', 'Aide et tutoriel']
 };
 // Pages publiques : présentation, connexion et inscription
 const LANDING = {accueil: 'Devis & Factures — devis et factures pour indépendants', connexion: 'Connexion — Devis & Factures', inscription: 'Créer un compte — Devis & Factures'};
@@ -1960,6 +2158,30 @@ window.addEventListener('hashchange', showRoute);
 $('menuBtn').onclick = () => document.body.classList.toggle('menu-open');
 $('scrim').onclick = () => document.body.classList.remove('menu-open');
 $('newQuoteBtn').onclick = () => { newQuote(); go('editeur'); };
+
+// Guide : recherche dans les fiches, et boutons qui ouvrent directement la bonne fonction
+const helpOrder = [...$('helpList').children];
+$('helpSearch').oninput = () => {
+  const q = $('helpSearch').value.trim();
+  // Les fiches les plus pertinentes d'abord (titre avant contenu) ; ordre d'origine sans recherche
+  const ranked = helpOrder.map((e, i) => ({e, i, s: !q || e.tagName !== 'DETAILS' ? 0
+    : searchScore(q, e.querySelector('summary').textContent, e.textContent) + (searchScore(q, e.querySelector('summary').textContent, '') ? 5 : 0)}));
+  if (q) ranked.sort((a, b) => b.s - a.s || a.i - b.i);
+  $('helpList').replaceChildren(...ranked.map(r => r.e));
+  let shown = 0;
+  ranked.forEach(({e, s}) => {
+    if (e.tagName !== 'DETAILS'){ e.hidden = !!q; return; }
+    const hit = !q || s > 0;
+    e.hidden = !hit;
+    e.open = !!q && hit && shown === 0;
+    if (hit) shown++;
+  });
+  $('helpEmpty').hidden = shown > 0;
+};
+document.querySelectorAll('#viewHelp [data-help]').forEach(a => a.addEventListener('click', () => setTimeout(() => {
+  if (a.dataset.help === 'new') newQuote();
+  if (a.dataset.help === 'library') openLibrary();
+}, 50)));
 $('logout2').onclick = () => $('logout').click();
 
 // Connexion ou création de compte : même formulaire, boutons et textes adaptés
